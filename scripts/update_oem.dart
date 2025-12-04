@@ -154,19 +154,47 @@ Future<void> updateAndroidBuildGradle(String packageName) async {
   final file = File('android/app/build.gradle.kts');
   if (await file.exists()) {
     var content = await file.readAsString();
-    // 更新 applicationId
+    // 只更新 applicationId，不更新 namespace
+    // namespace 用于生成 R 类的包名，如果更改会导致 Kotlin 代码中的 R 类引用失效
     content = content.replaceAll(
       RegExp(r'applicationId\s*=\s*".*"'),
       'applicationId = "$packageName"',
     );
-    // 更新 namespace (可选,但推荐)
-    content = content.replaceAll(
-      RegExp(r'namespace\s*=\s*".*"'),
-      'namespace = "$packageName"',
-    );
     await file.writeAsString(content);
+    print('   ✓ 已更新 applicationId');
+    print('   ℹ️ namespace 保持不变以避免 R 类引用问题');
   } else {
     print('⚠️ 警告: 找不到 android/app/build.gradle.kts');
+  }
+}
+
+Future<void> _updateKotlinRImports(String packageName) async {
+  print('🔄 更新 Kotlin 文件中的 R 类引用...');
+  
+  final oldPackage = 'com.follow.clash';
+  if (packageName == oldPackage) {
+    print('   ⏭️ 包名未更改，跳过');
+    return;
+  }
+  
+  // 只需要更新引用了 R 类的文件
+  final filesToUpdate = [
+    'android/app/src/main/kotlin/com/follow/clash/plugins/AppPlugin.kt',
+    'android/service/src/main/java/com/follow/clash/service/modules/NotificationModule.kt',
+  ];
+  
+  for (final filePath in filesToUpdate) {
+    final file = File(filePath);
+    if (await file.exists()) {
+      var content = await file.readAsString();
+      // 更新 R 类的 import
+      content = content.replaceAll(
+        'import $oldPackage.R',
+        'import $packageName.R',
+      );
+      await file.writeAsString(content);
+      print('   ✓ 已更新: $filePath');
+    }
   }
 }
 
