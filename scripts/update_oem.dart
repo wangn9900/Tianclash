@@ -111,6 +111,8 @@ void main(List<String> args) async {
     await updateWindowsCMakeLists(binaryName);
   }
   
+  await updateMacosAppInfo(appName, packageName);
+  
   // Parse backup URLs if provided (comma separated)
   List<String>? backupUrlsList;
   if (argMap['backupUrls'] != null && argMap['backupUrls']!.isNotEmpty) {
@@ -312,5 +314,28 @@ Future<void> updateIcons(String iconPath) async {
     }
   } else {
     print('⚠️ 警告: 找不到 flutter_launcher_icons.yaml');
+  }
+}
+
+Future<void> updateMacosAppInfo(String appName, String packageName) async {
+  print('🔄 更新 macOS 应用信息...');
+  final file = File('macos/Runner/Configs/AppInfo.xcconfig');
+  if (await file.exists()) {
+    var content = await file.readAsString();
+    content = content.replaceAll(
+      RegExp(r'PRODUCT_NAME = .*'),
+      'PRODUCT_NAME = $appName',
+    );
+    content = content.replaceAll(
+      RegExp(r'PRODUCT_BUNDLE_IDENTIFIER = .*'),
+      'PRODUCT_BUNDLE_IDENTIFIER = $packageName',
+    );
+    content = content.replaceAll(
+      RegExp(r'PRODUCT_COPYRIGHT = .*'),
+      'PRODUCT_COPYRIGHT = Copyright © ${DateTime.now().year} $appName. All rights reserved.',
+    );
+    await file.writeAsString(content);
+  } else {
+    print('⚠️ 警告: 找不到 macos/Runner/Configs/AppInfo.xcconfig');
   }
 }
