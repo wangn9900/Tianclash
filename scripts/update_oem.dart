@@ -108,11 +108,9 @@ void main(List<String> args) async {
   await updateAndroidDisableGoogleServices();  // Disable Google Services for OEM builds
   await updateWindowsRunnerRc(appName, packageName);
   
-  // 暂时禁用 BINARY_NAME 修改以测试 Windows 问题
-  // 如果这能解决问题，需要找到更好的方式重命名 exe
-  // if (binaryName != null && binaryName.isNotEmpty) {
-  //   await updateWindowsCMakeLists(binaryName);
-  // }
+  // Windows: 不修改 CMakeLists.txt 中的 BINARY_NAME
+  // 因为这会导致构建问题。我们改为在构建后重命名 exe 文件
+  // 重命名步骤在 build_oem.yml 的 "Rename Executable" 中完成
   
   await updateMacosAppInfo(appName, packageName);
   await updateLinuxAppInfo(appName, packageName, binaryName);
@@ -136,20 +134,8 @@ void main(List<String> args) async {
   print('✅ 所有 OEM 配置更新完成!');
 }
 
-Future<void> updateWindowsCMakeLists(String binaryName) async {
-  print('🔄 更新 Windows 可执行文件名...');
-  final file = File('windows/CMakeLists.txt');
-  if (await file.exists()) {
-    var content = await file.readAsString();
-    content = content.replaceAll(
-      RegExp(r'set\(BINARY_NAME ".*"\)'),
-      'set(BINARY_NAME "$binaryName")',
-    );
-    await file.writeAsString(content);
-  } else {
-    print('⚠️ 警告: 找不到 windows/CMakeLists.txt');
-  }
-}
+// updateWindowsCMakeLists 已移除 - 我们现在在构建后重命名 exe 文件
+// 这样可以避免修改 CMake 配置导致的构建问题
 
 Future<void> updateAndroidBuildGradle(String packageName) async {
   print('🔄 更新 Android 包名...');

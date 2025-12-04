@@ -214,6 +214,24 @@ jobs:
             }
             Write-Host "✓ Found: $file"
           }
+          
+      - name: Rename Executable
+        run: |
+          $releaseDir = "build\windows\x64\runner\Release"
+          $originalExe = "TianQue.exe"
+          $binaryName = "${{ github.event.inputs.binaryName }}"
+          
+          if ($binaryName -and $binaryName -ne "") {
+            $newExe = "$binaryName.exe"
+            Write-Host "Renaming $originalExe to $newExe"
+            Rename-Item -Path "$releaseDir\$originalExe" -NewName $newExe -Force
+            Write-Host "✓ Renamed successfully"
+          } else {
+            Write-Host "No custom binary name specified, keeping original name"
+          }
+          
+          Write-Host "=== Final executable ==="
+          Get-ChildItem $releaseDir -Filter "*.exe" | Format-Table Name, Length
         
       - name: Archive Windows Build
         run: |
