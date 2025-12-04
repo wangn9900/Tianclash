@@ -426,15 +426,11 @@ Future<void> updateLinuxAppInfo(String appName, String packageName, String? bina
   print('🔄 更新 Linux 应用信息...');
   
   // Update CMakeLists.txt
+  // 注意: 不修改 BINARY_NAME，和 Windows 一样，改为在构建后重命名
+  // 只修改 APPLICATION_ID
   final cmakeFile = File('linux/CMakeLists.txt');
   if (await cmakeFile.exists()) {
     var content = await cmakeFile.readAsString();
-    if (binaryName != null && binaryName.isNotEmpty) {
-      content = content.replaceAll(
-        RegExp(r'set\(BINARY_NAME ".*"\)'),
-        'set(BINARY_NAME "$binaryName")',
-      );
-    }
     content = content.replaceAll(
       RegExp(r'set\(APPLICATION_ID ".*"\)'),
       'set(APPLICATION_ID "$packageName")',
@@ -444,7 +440,7 @@ Future<void> updateLinuxAppInfo(String appName, String packageName, String? bina
     print('⚠️ 警告: 找不到 linux/CMakeLists.txt');
   }
 
-  // Update my_application.cc
+  // Update my_application.cc - 修改窗口标题
   final appFile = File('linux/my_application.cc');
   if (await appFile.exists()) {
     var content = await appFile.readAsString();

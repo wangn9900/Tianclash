@@ -159,83 +159,47 @@ jobs:
       - name: Clean Build Cache
         run: |
           flutter clean
-          # 重新获取依赖
           flutter pub get
             
-      - name: Build Core and Helper
-        id: build_core
+      - name: Build Windows (using same method as main build)
         run: |
-          # 运行 setup.dart 构建核心和 helper（helper 会自动嵌入正确的 token）
-          dart setup.dart windows --out prep --arch amd64
+          # 使用与主构建相同的方式
+          dart setup.dart windows --arch amd64 --env stable
           
-          # 查找并计算核心文件的 SHA256
-          # setup.dart 将核心文件输出到 libclash/windows/ 目录
-          $corePath = Get-ChildItem -Path "libclash\windows" -Filter "FlClashCore.exe" -Recurse | Select-Object -First 1 -ExpandProperty FullName
-          if (-not $corePath) {
-            Write-Error "FlClashCore.exe not found!"
+      - name: Prepare Final Package
+        run: |
+          # 找到构建产物
+          $distDir = "dist"
+          Write-Host "=== Dist directory contents ==="
+          Get-ChildItem $distDir -Recurse | Format-Table FullName, Length
+          
+          # 找到 zip 文件
+          $zipFile = Get-ChildItem $distDir -Filter "*.zip" | Select-Object -First 1
+          if ($zipFile) {
+            # 解压到临时目录
+            $tempDir = "temp_extract"
+            Expand-Archive -Path $zipFile.FullName -DestinationPath $tempDir -Force
+            
+            # 重命名可执行文件
+            $binaryName = "${{ github.event.inputs.binaryName }}"
+            if ($binaryName -and $binaryName -ne "") {
+              $exeFile = Get-ChildItem $tempDir -Filter "*.exe" -Recurse | Where-Object { $_.Name -eq "TianQue.exe" } | Select-Object -First 1
+              if ($exeFile) {
+                $newName = "$binaryName.exe"
+                $newPath = Join-Path $exeFile.Directory.FullName $newName
+                Move-Item -Path $exeFile.FullName -Destination $newPath -Force
+                Write-Host "Renamed TianQue.exe to $newName"
+              }
+            }
+            
+            # 重新打包
+            $finalZip = "${{ github.event.inputs.appName }}-Windows.zip"
+            Compress-Archive -Path "$tempDir\*" -DestinationPath $finalZip -Force
+            Write-Host "Created final package: $finalZip"
+          } else {
+            Write-Error "No zip file found in dist directory!"
             exit 1
           }
-          Write-Host "Found core at: $corePath"
-          
-          $hash = (Get-FileHash -Path $corePath -Algorithm SHA256).Hash.ToLower()
-          echo "CORE_SHA256=$hash" >> $env:GITHUB_OUTPUT
-          echo "CORE_PATH=$corePath" >> $env:GITHUB_OUTPUT
-          Write-Host "Core SHA256: $hash"
-          
-          # 列出所有构建的文件
-          Write-Host "=== Built files ==="
-          Get-ChildItem -Path "libclash\windows" -Recurse | Format-Table FullName, Length
-          
-      - name: Build Windows App
-        run: flutter build windows --release --dart-define=APP_ENV=stable --dart-define=CORE_SHA256=${{ steps.build_core.outputs.CORE_SHA256 }}
-        
-      - name: Copy Core Files to Build Output
-        run: |
-          $releaseDir = "build\windows\x64\runner\Release"
-          
-          # 复制核心文件
-          $coreFiles = Get-ChildItem -Path "libclash\windows" -Filter "*.exe" -Recurse
-          foreach ($file in $coreFiles) {
-            Write-Host "Copying $($file.Name) to $releaseDir"
-            Copy-Item -Path $file.FullName -Destination $releaseDir -Force
-          }
-          
-          Write-Host "=== Final build contents ==="
-          Get-ChildItem $releaseDir | Format-Table Name, Length
-          
-      - name: Verify Core Files
-        run: |
-          $releaseDir = "build\windows\x64\runner\Release"
-          $requiredFiles = @("FlClashCore.exe", "FlClashHelperService.exe")
-          foreach ($file in $requiredFiles) {
-            if (-not (Test-Path "$releaseDir\$file")) {
-              Write-Error "Missing required file: $file"
-              exit 1
-            }
-            Write-Host "✓ Found: $file"
-          }
-          
-      - name: Rename Executable
-        run: |
-          $releaseDir = "build\windows\x64\runner\Release"
-          $originalExe = "TianQue.exe"
-          $binaryName = "${{ github.event.inputs.binaryName }}"
-          
-          if ($binaryName -and $binaryName -ne "") {
-            $newExe = "$binaryName.exe"
-            Write-Host "Renaming $originalExe to $newExe"
-            Rename-Item -Path "$releaseDir\$originalExe" -NewName $newExe -Force
-            Write-Host "✓ Renamed successfully"
-          } else {
-            Write-Host "No custom binary name specified, keeping original name"
-          }
-          
-          Write-Host "=== Final executable ==="
-          Get-ChildItem $releaseDir -Filter "*.exe" | Format-Table Name, Length
-        
-      - name: Archive Windows Build
-        run: |
-          Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath ${{ github.event.inputs.appName }}-Windows.zip
           
       - name: Upload Windows Build
         uses: actions/upload-artifact@v4
@@ -338,12 +302,34 @@ jobs:
             --backupUrls="${{ github.event.inputs.backupUrls }}" \
             --fallbackUrl="${{ github.event.inputs.fallbackUrl }}" \
             --iconPath="${{ github.event.inputs.iconUrl != '' && github.event.inputs.iconUrl || 'assets/images/icon.png' }}"
+
+      - name: Clean Build Cache
+        run: |
+          flutter clean
+          flutter pub get
             
       - name: Build Core
         run: dart setup.dart linux --out core --arch amd64
 
       - name: Build Linux
         run: flutter build linux --release --dart-define=APP_ENV=stable
+        
+      - name: Rename Executable
+        run: |
+          RELEASE_DIR="build/linux/x64/release/bundle"
+          ORIGINAL_EXE="TianQue"
+          BINARY_NAME="${{ github.event.inputs.binaryName }}"
+          
+          if [ -n "$BINARY_NAME" ] && [ "$BINARY_NAME" != "" ]; then
+            echo "Renaming $ORIGINAL_EXE to $BINARY_NAME"
+            mv "$RELEASE_DIR/$ORIGINAL_EXE" "$RELEASE_DIR/$BINARY_NAME"
+            echo "✓ Renamed successfully"
+          else
+            echo "No custom binary name specified, keeping original name"
+          fi
+          
+          echo "=== Final executable ==="
+          ls -la "$RELEASE_DIR"
         
       - name: Archive Linux Build
         run: |
