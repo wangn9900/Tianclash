@@ -62,7 +62,7 @@ jobs:
             --imgbbApiKey="${{ github.event.inputs.imgbbApiKey }}" \
             --backupUrls="${{ github.event.inputs.backupUrls }}" \
             --fallbackUrl="${{ github.event.inputs.fallbackUrl }}" \
-            --iconPath="${{ github.event.inputs.iconUrl != '' && github.event.inputs.iconUrl || 'assets/images/icon_new.jpg' }}"
+            --iconPath="${{ github.event.inputs.iconUrl != '' && github.event.inputs.iconUrl || 'assets/images/icon.png' }}"
             
       - name: Build APK
         run: flutter build apk --release
@@ -96,7 +96,7 @@ jobs:
             --imgbbApiKey="${{ github.event.inputs.imgbbApiKey }}" `
             --backupUrls="${{ github.event.inputs.backupUrls }}" `
             --fallbackUrl="${{ github.event.inputs.fallbackUrl }}" `
-            --iconPath="${{ github.event.inputs.iconUrl != '' && github.event.inputs.iconUrl || 'assets/images/icon_new.jpg' }}"
+            --iconPath="${{ github.event.inputs.iconUrl != '' && github.event.inputs.iconUrl || 'assets/images/icon.png' }}"
             
       - name: Build Windows
         run: flutter build windows --release
@@ -134,7 +134,7 @@ jobs:
             --imgbbApiKey="${{ github.event.inputs.imgbbApiKey }}" \
             --backupUrls="${{ github.event.inputs.backupUrls }}" \
             --fallbackUrl="${{ github.event.inputs.fallbackUrl }}" \
-            --iconPath="${{ github.event.inputs.iconUrl != '' && github.event.inputs.iconUrl || 'assets/images/icon_new.jpg' }}"
+            --iconPath="${{ github.event.inputs.iconUrl != '' && github.event.inputs.iconUrl || 'assets/images/icon.png' }}"
             
       - name: Build macOS
         run: flutter build macos --release
@@ -179,7 +179,7 @@ jobs:
             --imgbbApiKey="${{ github.event.inputs.imgbbApiKey }}" \
             --backupUrls="${{ github.event.inputs.backupUrls }}" \
             --fallbackUrl="${{ github.event.inputs.fallbackUrl }}" \
-            --iconPath="${{ github.event.inputs.iconUrl != '' && github.event.inputs.iconUrl || 'assets/images/icon_new.jpg' }}"
+            --iconPath="${{ github.event.inputs.iconUrl != '' && github.event.inputs.iconUrl || 'assets/images/icon.png' }}"
             
       - name: Build Linux
         run: flutter build linux --release

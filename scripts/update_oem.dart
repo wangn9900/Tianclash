@@ -72,7 +72,7 @@ void main(List<String> args) async {
     } catch (e) {
       print('❌ 图标下载失败: $e');
       print('⚠️ 将使用默认图标');
-      iconPath = 'assets/images/icon_new.jpg';
+      iconPath = 'assets/images/icon.png';
     }
   }
 
