@@ -112,3 +112,89 @@ jobs:
         with:
           name: ${{ github.event.inputs.appName }}-Windows
           path: ${{ github.event.inputs.appName }}-Windows.zip
+
+  build-macos:
+    name: Build macOS Client
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          flutter-version: '3.24.0'
+          
+      - name: Get Dependencies
+        run: flutter pub get
+        
+      - name: Update OEM Config
+        run: |
+          dart run scripts/update_oem.dart \
+            --appName="${{ github.event.inputs.appName }}" \
+            --packageName="${{ github.event.inputs.packageName }}" \
+            --ossUrl="${{ github.event.inputs.ossUrl }}" \
+            --imgbbApiKey="${{ github.event.inputs.imgbbApiKey }}" \
+            --backupUrls="${{ github.event.inputs.backupUrls }}" \
+            --fallbackUrl="${{ github.event.inputs.fallbackUrl }}" \
+            --iconPath="${{ github.event.inputs.iconUrl != '' && github.event.inputs.iconUrl || 'assets/images/icon_new.jpg' }}"
+            
+      - name: Build macOS
+        run: flutter build macos --release
+        
+      - name: Create DMG
+        run: |
+          cd build/macos/Build/Products/Release
+          hdiutil create -volname "${{ github.event.inputs.appName }}" -srcfolder "${{ github.event.inputs.appName }}.app" -ov -format UDZO "${{ github.event.inputs.appName }}.dmg"
+          mv "${{ github.event.inputs.appName }}.dmg" ../../../../../
+          
+      - name: Upload macOS Build
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.inputs.appName }}-macOS
+          path: ${{ github.event.inputs.appName }}.dmg
+
+  build-linux:
+    name: Build Linux Client
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libgtk-3-dev libayatana-appindicator3-dev liblzma-dev
+          
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          flutter-version: '3.24.0'
+          
+      - name: Get Dependencies
+        run: flutter pub get
+        
+      - name: Update OEM Config
+        run: |
+          dart run scripts/update_oem.dart \
+            --appName="${{ github.event.inputs.appName }}" \
+            --packageName="${{ github.event.inputs.packageName }}" \
+            --ossUrl="${{ github.event.inputs.ossUrl }}" \
+            --imgbbApiKey="${{ github.event.inputs.imgbbApiKey }}" \
+            --backupUrls="${{ github.event.inputs.backupUrls }}" \
+            --fallbackUrl="${{ github.event.inputs.fallbackUrl }}" \
+            --iconPath="${{ github.event.inputs.iconUrl != '' && github.event.inputs.iconUrl || 'assets/images/icon_new.jpg' }}"
+            
+      - name: Build Linux
+        run: flutter build linux --release
+        
+      - name: Archive Linux Build
+        run: |
+          cd build/linux/x64/release/bundle
+          tar -czf ../../../../../${{ github.event.inputs.appName }}-Linux.tar.gz *
+          
+      - name: Upload Linux Build
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.inputs.appName }}-Linux
+          path: ${{ github.event.inputs.appName }}-Linux.tar.gz
