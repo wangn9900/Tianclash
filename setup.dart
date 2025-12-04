@@ -449,7 +449,7 @@ class BuildCommand extends Command {
       mode: mode,
     );
 
-    if (out != 'app') {
+    if (out == 'core') {
       return;
     }
 
@@ -459,6 +459,7 @@ class BuildCommand extends Command {
             ? await Build.calcSha256(corePaths.first)
             : null;
         Build.buildHelper(target, token!);
+        if (out == 'prep') return;
         _buildDistributor(
           target: target,
           targets: 'exe,zip',
@@ -475,6 +476,7 @@ class BuildCommand extends Command {
           if (arch == Arch.amd64) 'rpm',
         ].join(',');
         final defaultTarget = targetMap[arch];
+        if (out == 'prep') return;
         await _getLinuxDependencies(arch!);
         _buildDistributor(
           target: target,
@@ -495,6 +497,9 @@ class BuildCommand extends Command {
             .where((element) => arch == null ? true : element == arch)
             .map((e) => targetMap[e])
             .toList();
+            .map((e) => targetMap[e])
+            .toList();
+        if (out == 'prep') return;
         _buildDistributor(
           target: target,
           targets: 'apk',
@@ -504,6 +509,7 @@ class BuildCommand extends Command {
         );
         return;
       case Target.macos:
+        if (out == 'prep') return;
         await _getMacosDependencies();
         _buildDistributor(
           target: target,

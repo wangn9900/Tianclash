@@ -122,7 +122,7 @@ jobs:
             --iconPath="${{ github.event.inputs.iconUrl != '' && github.event.inputs.iconUrl || 'assets/images/icon.png' }}"
             
       - name: Build Core
-        run: dart setup.dart windows --out core --arch amd64
+        run: dart setup.dart windows --out prep --arch amd64
 
       - name: Build Windows
         run: flutter build windows --release
