@@ -112,7 +112,7 @@ void main(List<String> args) async {
   await updateImgBBKey(imgbbApiKey);
   
   if (!skipIconGeneration) {
-    await updateIcons(iconPath);
+    await updateIcons(iconPath!);
   } else {
     print('⏭️ 跳过图标生成步骤');
   }
