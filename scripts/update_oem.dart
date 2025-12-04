@@ -112,6 +112,7 @@ void main(List<String> args) async {
   }
   
   await updateMacosAppInfo(appName, packageName);
+  await updateLinuxAppInfo(appName, packageName, binaryName);
   
   // Parse backup URLs if provided (comma separated)
   List<String>? backupUrlsList;
@@ -337,5 +338,45 @@ Future<void> updateMacosAppInfo(String appName, String packageName) async {
     await file.writeAsString(content);
   } else {
     print('⚠️ 警告: 找不到 macos/Runner/Configs/AppInfo.xcconfig');
+  }
+}
+
+Future<void> updateLinuxAppInfo(String appName, String packageName, String? binaryName) async {
+  print('🔄 更新 Linux 应用信息...');
+  
+  // Update CMakeLists.txt
+  final cmakeFile = File('linux/CMakeLists.txt');
+  if (await cmakeFile.exists()) {
+    var content = await cmakeFile.readAsString();
+    if (binaryName != null && binaryName.isNotEmpty) {
+      content = content.replaceAll(
+        RegExp(r'set\(BINARY_NAME ".*"\)'),
+        'set(BINARY_NAME "$binaryName")',
+      );
+    }
+    content = content.replaceAll(
+      RegExp(r'set\(APPLICATION_ID ".*"\)'),
+      'set(APPLICATION_ID "$packageName")',
+    );
+    await cmakeFile.writeAsString(content);
+  } else {
+    print('⚠️ 警告: 找不到 linux/CMakeLists.txt');
+  }
+
+  // Update my_application.cc
+  final appFile = File('linux/my_application.cc');
+  if (await appFile.exists()) {
+    var content = await appFile.readAsString();
+    content = content.replaceAll(
+      RegExp(r'gtk_header_bar_set_title\(header_bar, ".*"\);'),
+      'gtk_header_bar_set_title(header_bar, "$appName");',
+    );
+    content = content.replaceAll(
+      RegExp(r'gtk_window_set_title\(window, ".*"\);'),
+      'gtk_window_set_title(window, "$appName");',
+    );
+    await appFile.writeAsString(content);
+  } else {
+    print('⚠️ 警告: 找不到 linux/my_application.cc');
   }
 }
