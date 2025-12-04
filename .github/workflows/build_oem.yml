@@ -342,17 +342,29 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: ./all-artifacts
+          pattern: ${{ github.event.inputs.appName }}-*
+          merge-multiple: false
           
       - name: List Downloaded Files
         run: |
-          echo "=== All downloaded artifacts ==="
+          echo "=== Downloaded artifact directories ==="
+          ls -la ./all-artifacts/
+          echo ""
+          echo "=== All files ==="
           find ./all-artifacts -type f -exec ls -lh {} \;
           
       - name: Merge into Single Package
         run: |
           mkdir -p ./release
-          # 复制所有文件到 release 目录
-          find ./all-artifacts -type f \( -name "*.apk" -o -name "*.zip" -o -name "*.dmg" -o -name "*.tar.gz" \) -exec cp {} ./release/ \;
+          
+          # 复制所有构建文件到 release 目录
+          for dir in ./all-artifacts/*/; do
+            echo "Processing: $dir"
+            # 复制目录中的所有文件
+            find "$dir" -type f \( -name "*.apk" -o -name "*.zip" -o -name "*.dmg" -o -name "*.tar.gz" \) -exec cp {} ./release/ \;
+          done
+          
+          echo ""
           echo "=== Final release package contents ==="
           ls -lh ./release/
           
@@ -360,5 +372,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ github.event.inputs.appName }}-All-Platforms
-          path: ./release/*
+          path: ./release/
           retention-days: 30
+          if-no-files-found: warn
