@@ -74,6 +74,9 @@ jobs:
             --fallbackUrl="${{ github.event.inputs.fallbackUrl }}" \
             --iconPath="${{ github.event.inputs.iconUrl != '' && github.event.inputs.iconUrl || 'assets/images/icon.png' }}"
             
+      - name: Build Core
+        run: dart setup.dart android --out core
+
       - name: Build APK
         run: flutter build apk --release
         
@@ -118,6 +121,9 @@ jobs:
             --fallbackUrl="${{ github.event.inputs.fallbackUrl }}" `
             --iconPath="${{ github.event.inputs.iconUrl != '' && github.event.inputs.iconUrl || 'assets/images/icon.png' }}"
             
+      - name: Build Core
+        run: dart setup.dart windows --out core --arch amd64
+
       - name: Build Windows
         run: flutter build windows --release
         
@@ -166,6 +172,9 @@ jobs:
             --fallbackUrl="${{ github.event.inputs.fallbackUrl }}" \
             --iconPath="${{ github.event.inputs.iconUrl != '' && github.event.inputs.iconUrl || 'assets/images/icon.png' }}"
             
+      - name: Build Core
+        run: dart setup.dart macos --out core --arch arm64
+
       - name: Build macOS
         run: flutter build macos --release
         
@@ -222,6 +231,9 @@ jobs:
             --fallbackUrl="${{ github.event.inputs.fallbackUrl }}" \
             --iconPath="${{ github.event.inputs.iconUrl != '' && github.event.inputs.iconUrl || 'assets/images/icon.png' }}"
             
+      - name: Build Core
+        run: dart setup.dart linux --out core --arch amd64
+
       - name: Build Linux
         run: flutter build linux --release
         
