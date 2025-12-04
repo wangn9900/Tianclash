@@ -283,32 +283,30 @@ Future<void> updateWindowsRunnerRc(String appName, String packageName) async {
   final file = File('windows/runner/Runner.rc');
   if (await file.exists()) {
     var content = await file.readAsString();
-    content = content.replaceAll(
-      RegExp(r'VALUE "FileDescription", ".*"'),
-      'VALUE "FileDescription", "$appName"',
-    );
-    content = content.replaceAll(
-      RegExp(r'VALUE "InternalName", ".*"'),
-      'VALUE "InternalName", "$appName"',
-    );
-    content = content.replaceAll(
-      RegExp(r'VALUE "ProductName", ".*"'),
-      'VALUE "ProductName", "$appName"',
-    );
-    // 更新公司名称为包名(通常公司名是包名的前两段,这里简单替换)
-    content = content.replaceAll(
-      RegExp(r'VALUE "CompanyName", ".*"'),
-      'VALUE "CompanyName", "$packageName"',
-    );
-    // I will first add the logic to replace them if provided in the script args.
     
-    // For now, let's just make sure the script *can* replace them if we add the args later.
-    // But wait, the user wants them "added to one-click packaging".
-    // This means I should add new arguments to the script AND update the workflow file.
+    // Runner.rc 格式: VALUE "Key", "Value" "\\0"
+    // 注意: 原始格式包含 null terminator 后缀
+    content = content.replaceAll(
+      RegExp(r'VALUE "FileDescription", "[^"]*" "\\\\0"'),
+      'VALUE "FileDescription", "$appName" "\\\\0"',
+    );
+    content = content.replaceAll(
+      RegExp(r'VALUE "InternalName", "[^"]*" "\\\\0"'),
+      'VALUE "InternalName", "$appName" "\\\\0"',
+    );
+    content = content.replaceAll(
+      RegExp(r'VALUE "ProductName", "[^"]*" "\\\\0"'),
+      'VALUE "ProductName", "$appName" "\\\\0"',
+    );
+    content = content.replaceAll(
+      RegExp(r'VALUE "CompanyName", "[^"]*" "\\\\0"'),
+      'VALUE "CompanyName", "$packageName" "\\\\0"',
+    );
     
     await file.writeAsString(content);
+    print('   ✓ 已更新 windows/runner/Runner.rc');
   } else {
-    print('⚠️ 警告: 找不到 lib/pages/v2board_login_page.dart');
+    print('⚠️ 警告: 找不到 windows/runner/Runner.rc');
   }
 }
 
