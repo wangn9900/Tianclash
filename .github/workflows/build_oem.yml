@@ -156,25 +156,58 @@ jobs:
             --fallbackUrl="${{ github.event.inputs.fallbackUrl }}" `
             --iconPath="${{ github.event.inputs.iconUrl != '' && github.event.inputs.iconUrl || 'assets/images/icon.png' }}"
             
-      - name: Build Core
-        run: dart setup.dart windows --out prep --arch amd64
-
-      - name: Calculate Core SHA256
-        id: core_sha256
+      - name: Build Core and Helper
+        id: build_core
         run: |
-          $hash = (Get-FileHash -Path "libclash\windows\FlClashCore.exe" -Algorithm SHA256).Hash.ToLower()
+          # 运行 setup.dart 构建核心和 helper（helper 会自动嵌入正确的 token）
+          dart setup.dart windows --out prep --arch amd64
+          
+          # 查找并计算核心文件的 SHA256
+          # setup.dart 将核心文件输出到 libclash/windows/ 目录
+          $corePath = Get-ChildItem -Path "libclash\windows" -Filter "FlClashCore.exe" -Recurse | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $corePath) {
+            Write-Error "FlClashCore.exe not found!"
+            exit 1
+          }
+          Write-Host "Found core at: $corePath"
+          
+          $hash = (Get-FileHash -Path $corePath -Algorithm SHA256).Hash.ToLower()
           echo "CORE_SHA256=$hash" >> $env:GITHUB_OUTPUT
+          echo "CORE_PATH=$corePath" >> $env:GITHUB_OUTPUT
           Write-Host "Core SHA256: $hash"
           
-      - name: Build Windows
-        run: flutter build windows --release --dart-define=APP_ENV=stable --dart-define=CORE_SHA256=${{ steps.core_sha256.outputs.CORE_SHA256 }}
+          # 列出所有构建的文件
+          Write-Host "=== Built files ==="
+          Get-ChildItem -Path "libclash\windows" -Recurse | Format-Table FullName, Length
+          
+      - name: Build Windows App
+        run: flutter build windows --release --dart-define=APP_ENV=stable --dart-define=CORE_SHA256=${{ steps.build_core.outputs.CORE_SHA256 }}
         
-      - name: Copy Core Files
+      - name: Copy Core Files to Build Output
         run: |
-          Copy-Item -Path "libclash\windows\FlClashCore.exe" -Destination "build\windows\x64\runner\Release\" -Force
-          Copy-Item -Path "libclash\windows\FlClashHelperService.exe" -Destination "build\windows\x64\runner\Release\" -Force
-          Write-Host "Core files copied successfully"
-          Get-ChildItem "build\windows\x64\runner\Release\" | Format-Table Name, Length
+          $releaseDir = "build\windows\x64\runner\Release"
+          
+          # 复制核心文件
+          $coreFiles = Get-ChildItem -Path "libclash\windows" -Filter "*.exe" -Recurse
+          foreach ($file in $coreFiles) {
+            Write-Host "Copying $($file.Name) to $releaseDir"
+            Copy-Item -Path $file.FullName -Destination $releaseDir -Force
+          }
+          
+          Write-Host "=== Final build contents ==="
+          Get-ChildItem $releaseDir | Format-Table Name, Length
+          
+      - name: Verify Core Files
+        run: |
+          $releaseDir = "build\windows\x64\runner\Release"
+          $requiredFiles = @("FlClashCore.exe", "FlClashHelperService.exe")
+          foreach ($file in $requiredFiles) {
+            if (-not (Test-Path "$releaseDir\$file")) {
+              Write-Error "Missing required file: $file"
+              exit 1
+            }
+            Write-Host "✓ Found: $file"
+          }
         
       - name: Archive Windows Build
         run: |

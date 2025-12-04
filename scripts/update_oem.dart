@@ -284,23 +284,24 @@ Future<void> updateWindowsRunnerRc(String appName, String packageName) async {
   if (await file.exists()) {
     var content = await file.readAsString();
     
-    // Runner.rc 格式: VALUE "Key", "Value" "\\0"
-    // 注意: 原始格式包含 null terminator 后缀
+    // Runner.rc 格式: VALUE "Key", "Value" "\0"
+    // 文件中是单个反斜杠: \0
+    // 在 raw string regex 中, \\0 匹配 \0
     content = content.replaceAll(
-      RegExp(r'VALUE "FileDescription", "[^"]*" "\\\\0"'),
-      'VALUE "FileDescription", "$appName" "\\\\0"',
+      RegExp(r'VALUE "FileDescription", "[^"]*" "\\0"'),
+      'VALUE "FileDescription", "$appName" "\\0"',
     );
     content = content.replaceAll(
-      RegExp(r'VALUE "InternalName", "[^"]*" "\\\\0"'),
-      'VALUE "InternalName", "$appName" "\\\\0"',
+      RegExp(r'VALUE "InternalName", "[^"]*" "\\0"'),
+      'VALUE "InternalName", "$appName" "\\0"',
     );
     content = content.replaceAll(
-      RegExp(r'VALUE "ProductName", "[^"]*" "\\\\0"'),
-      'VALUE "ProductName", "$appName" "\\\\0"',
+      RegExp(r'VALUE "ProductName", "[^"]*" "\\0"'),
+      'VALUE "ProductName", "$appName" "\\0"',
     );
     content = content.replaceAll(
-      RegExp(r'VALUE "CompanyName", "[^"]*" "\\\\0"'),
-      'VALUE "CompanyName", "$packageName" "\\\\0"',
+      RegExp(r'VALUE "CompanyName", "[^"]*" "\\0"'),
+      'VALUE "CompanyName", "$packageName" "\\0"',
     );
     
     await file.writeAsString(content);
