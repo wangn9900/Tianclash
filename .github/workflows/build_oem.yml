@@ -100,7 +100,7 @@ jobs:
           fi
 
       - name: Build APK
-        run: flutter build apk --release
+        run: flutter build apk --release --dart-define=APP_ENV=stable
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
@@ -151,7 +151,7 @@ jobs:
         run: dart setup.dart windows --out prep --arch amd64
 
       - name: Build Windows
-        run: flutter build windows --release
+        run: flutter build windows --release --dart-define=APP_ENV=stable
         
       - name: Archive Windows Build
         run: |
@@ -202,7 +202,7 @@ jobs:
         run: dart setup.dart macos --out core --arch arm64
 
       - name: Build macOS
-        run: flutter build macos --release
+        run: flutter build macos --release --dart-define=APP_ENV=stable
         
       - name: Create DMG
         run: |
@@ -261,7 +261,7 @@ jobs:
         run: dart setup.dart linux --out core --arch amd64
 
       - name: Build Linux
-        run: flutter build linux --release
+        run: flutter build linux --release --dart-define=APP_ENV=stable
         
       - name: Archive Linux Build
         run: |
