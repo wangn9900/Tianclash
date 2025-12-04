@@ -497,8 +497,7 @@ class BuildCommand extends Command {
             .where((element) => arch == null ? true : element == arch)
             .map((e) => targetMap[e])
             .toList();
-            .map((e) => targetMap[e])
-            .toList();
+
         if (out == 'prep') return;
         _buildDistributor(
           target: target,
