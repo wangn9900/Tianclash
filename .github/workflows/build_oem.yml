@@ -169,166 +169,73 @@ jobs:
           }
 
             
-      - name: Build Windows (using same method as main build)
+      - name: Build Windows
         run: |
-          # 使用与主构建相同的方式
+          # 使用与主构建相同的方式编译核心和应用
           dart setup.dart windows --arch amd64 --env stable
-          
-      - name: Verify Build Output
-        run: |
-          Write-Host "=== Checking build output ==="
-          
-          # 检查 dist 目录
-          if (Test-Path "dist") {
-            Write-Host "dist directory exists:"
-            Get-ChildItem -Path "dist" -Recurse | ForEach-Object {
-              Write-Host "  $($_.FullName) - $($_.Length) bytes"
-            }
-          } else {
-            Write-Host "ERROR: dist directory does not exist!"
-          }
-          
-          # 检查原始 Flutter 构建产物
-          $releasePath = "build/windows/x64/runner/Release"
-          if (Test-Path $releasePath) {
-            Write-Host "`n=== Flutter Release build output ==="
-            Get-ChildItem -Path $releasePath -Recurse | ForEach-Object {
-              Write-Host "  $($_.FullName) - $($_.Length) bytes"
-            }
-            
-            # 检查主 exe 大小
-            $mainExe = Get-ChildItem -Path $releasePath -Filter "*.exe" | Where-Object { $_.Name -notlike "*Helper*" -and $_.Name -notlike "*Core*" } | Select-Object -First 1
-            if ($mainExe) {
-              Write-Host "`nMain EXE: $($mainExe.Name) = $($mainExe.Length) bytes"
-              if ($mainExe.Length -lt 1000000) {
-                Write-Host "WARNING: EXE is suspiciously small! Expected > 1MB"
-              }
-            }
-          } else {
-            Write-Host "WARNING: Release path not found: $releasePath"
-          }
-          
-          # 检查 libclash 目录
-          if (Test-Path "libclash/windows") {
-            Write-Host "`n=== libclash/windows contents ==="
-            Get-ChildItem -Path "libclash/windows" -Recurse | ForEach-Object {
-              Write-Host "  $($_.FullName) - $($_.Length) bytes"
-            }
-          }
-
           
       - name: Prepare Final Package
         run: |
-          # 找到构建产物
-          $distDir = "dist"
-          Write-Host "=== Dist directory contents ==="
-          Get-ChildItem $distDir -Recurse | Format-Table FullName, Length
+          Write-Host "=== Preparing Windows Package ==="
           
-          # 找到 zip 文件
-          $zipFile = Get-ChildItem $distDir -Filter "*.zip" | Select-Object -First 1
-          if (-not $zipFile) {
-            Write-Error "No zip file found in dist directory!"
+          # Flutter 构建输出目录
+          $releaseDir = "build\windows\x64\runner\Release"
+          
+          # 检查构建是否成功
+          if (-not (Test-Path $releaseDir)) {
+            Write-Error "Release directory not found: $releaseDir"
             exit 1
           }
           
-          Write-Host "Found zip: $($zipFile.FullName)"
-          Write-Host "Zip file size: $($zipFile.Length) bytes"
-          
-          # 使用 7-Zip 解压（比 Expand-Archive 更可靠）
-          $tempDir = "temp_extract"
-          if (Test-Path $tempDir) {
-            Remove-Item -Path $tempDir -Recurse -Force
-          }
-          New-Item -ItemType Directory -Path $tempDir -Force
-          
-          # 使用 7z 解压
-          & 7z x $zipFile.FullName -o"$tempDir" -y
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "7z not available, falling back to Expand-Archive"
-            Expand-Archive -Path $zipFile.FullName -DestinationPath $tempDir -Force
-          }
-          
-          Write-Host "=== Extracted contents ==="
-          Get-ChildItem $tempDir -Recurse | ForEach-Object {
+          Write-Host "=== Release directory contents ==="
+          Get-ChildItem $releaseDir -Recurse | ForEach-Object {
             Write-Host "$($_.FullName) - $($_.Length) bytes"
           }
           
-          # 查找解压后的实际内容目录
-          $contentDir = $tempDir
-          $subdirs = Get-ChildItem $tempDir -Directory
-          if ($subdirs.Count -eq 1 -and (Get-ChildItem $tempDir -File).Count -eq 0) {
-            $contentDir = $subdirs[0].FullName
-            Write-Host "Content is in subdirectory: $contentDir"
+          # 验证关键文件存在
+          $requiredFiles = @("TianQue.exe", "flutter_windows.dll", "FlClashCore.exe")
+          foreach ($file in $requiredFiles) {
+            $filePath = Join-Path $releaseDir $file
+            if (-not (Test-Path $filePath)) {
+              Write-Error "Required file not found: $file"
+              exit 1
+            }
+            $fileInfo = Get-Item $filePath
+            Write-Host "Verified: $file = $($fileInfo.Length) bytes"
           }
           
-          # 重命名可执行文件
+          # 重命名可执行文件（如果需要）
           $binaryName = "${{ github.event.inputs.binaryName }}"
-          if ($binaryName -and $binaryName -ne "") {
-            $exeFile = Get-ChildItem $contentDir -Filter "TianQue.exe" -Recurse | Select-Object -First 1
-            if ($exeFile) {
-              Write-Host "Found TianQue.exe at: $($exeFile.FullName)"
-              Write-Host "Original file size: $($exeFile.Length) bytes"
-              
-              $newName = "$binaryName.exe"
-              $newPath = Join-Path $exeFile.Directory.FullName $newName
-              
-              # 复制而不是移动，以确保文件完整性
-              Copy-Item -Path $exeFile.FullName -Destination $newPath -Force
-              Remove-Item -Path $exeFile.FullName -Force
-              
-              Write-Host "Renamed to: $newPath"
-              
-              # 验证重命名后的文件
-              $renamedFile = Get-Item $newPath
-              Write-Host "New file size: $($renamedFile.Length) bytes"
-              
-              if ($renamedFile.Length -ne $exeFile.Length) {
-                Write-Warning "File size mismatch after rename!"
-              }
-            } else {
-              Write-Warning "TianQue.exe not found!"
-              Get-ChildItem $contentDir -Filter "*.exe" -Recurse | ForEach-Object {
-                Write-Host "Found exe: $($_.FullName)"
-              }
-            }
+          if ($binaryName -and $binaryName -ne "" -and $binaryName -ne "TianQue") {
+            $oldExe = Join-Path $releaseDir "TianQue.exe"
+            $newExe = Join-Path $releaseDir "$binaryName.exe"
+            
+            Write-Host "Renaming TianQue.exe to $binaryName.exe"
+            Copy-Item -Path $oldExe -Destination $newExe -Force
+            Remove-Item -Path $oldExe -Force
+            
+            # 验证
+            $newFile = Get-Item $newExe
+            Write-Host "New exe: $($newFile.Name) = $($newFile.Length) bytes"
           }
           
-          # 验证 data 目录存在
-          $dataDir = Join-Path $contentDir "data"
-          if (Test-Path $dataDir) {
-            Write-Host "=== data directory contents ==="
-            Get-ChildItem $dataDir -Recurse | ForEach-Object {
-              Write-Host "$($_.FullName) - $($_.Length) bytes"
-            }
-          } else {
-            Write-Error "data directory not found! This will cause the app to fail!"
-          }
-          
-          # 使用 7-Zip 重新打包（比 Compress-Archive 更可靠）
+          # 直接打包 Release 目录（不解压重打包）
           $finalZip = "${{ github.event.inputs.appName }}-Windows.zip"
-          if (Test-Path $finalZip) {
-            Remove-Item $finalZip -Force
-          }
           
-          # 进入内容目录并打包
-          Push-Location $contentDir
-          & 7z a -tzip "../../$finalZip" * -r
-          $zipResult = $LASTEXITCODE
-          Pop-Location
+          Write-Host "Creating package: $finalZip"
           
-          if ($zipResult -ne 0) {
-            Write-Host "7z compression failed, falling back to Compress-Archive"
-            Compress-Archive -Path "$contentDir\*" -DestinationPath $finalZip -Force
-          }
+          # 使用 Compress-Archive 直接打包
+          Compress-Archive -Path "$releaseDir\*" -DestinationPath $finalZip -Force
           
           # 验证最终包
           $finalZipInfo = Get-Item $finalZip
           Write-Host "Final package: $finalZip"
           Write-Host "Final package size: $($finalZipInfo.Length) bytes"
           
-          # 清理临时目录
-          Remove-Item -Path $tempDir -Recurse -Force
-
+          # 包大小应该至少 50MB（flutter_windows.dll + FlClashCore.exe 等）
+          if ($finalZipInfo.Length -lt 50000000) {
+            Write-Warning "Package seems too small! Expected > 50MB"
+          }
           
       - name: Upload Windows Build
         uses: actions/upload-artifact@v4
