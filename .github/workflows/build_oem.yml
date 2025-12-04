@@ -156,8 +156,15 @@ jobs:
       - name: Build Core
         run: dart setup.dart windows --out prep --arch amd64
 
+      - name: Calculate Core SHA256
+        id: core_sha256
+        run: |
+          $hash = (Get-FileHash -Path "libclash\windows\FlClashCore.exe" -Algorithm SHA256).Hash.ToLower()
+          echo "CORE_SHA256=$hash" >> $env:GITHUB_OUTPUT
+          Write-Host "Core SHA256: $hash"
+          
       - name: Build Windows
-        run: flutter build windows --release --dart-define=APP_ENV=stable
+        run: flutter build windows --release --dart-define=APP_ENV=stable --dart-define=CORE_SHA256=${{ steps.core_sha256.outputs.CORE_SHA256 }}
         
       - name: Archive Windows Build
         run: |
