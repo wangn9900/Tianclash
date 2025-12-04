@@ -77,6 +77,28 @@ jobs:
       - name: Build Core
         run: dart setup.dart android --out core
 
+      - name: Setup Android Signing
+        run: |
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
+          elif [ -n "${{ secrets.KEYSTORE }}" ]; then
+            echo "${{ secrets.KEYSTORE }}" | base64 --decode > android/app/keystore.jks
+          else
+            echo "⚠️ No keystore secret found!"
+          fi
+          
+          if [ -n "${{ secrets.KEY_ALIAS }}" ]; then
+            echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/local.properties
+          fi
+          if [ -n "${{ secrets.KEYSTORE_PASSWORD }}" ]; then
+            echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" >> android/local.properties
+          elif [ -n "${{ secrets.STORE_PASSWORD }}" ]; then
+            echo "storePassword=${{ secrets.STORE_PASSWORD }}" >> android/local.properties
+          fi
+          if [ -n "${{ secrets.KEY_PASSWORD }}" ]; then
+            echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/local.properties
+          fi
+
       - name: Build APK
         run: flutter build apk --release
         
