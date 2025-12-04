@@ -166,6 +166,13 @@ jobs:
       - name: Build Windows
         run: flutter build windows --release --dart-define=APP_ENV=stable --dart-define=CORE_SHA256=${{ steps.core_sha256.outputs.CORE_SHA256 }}
         
+      - name: Copy Core Files
+        run: |
+          Copy-Item -Path "libclash\windows\FlClashCore.exe" -Destination "build\windows\x64\runner\Release\" -Force
+          Copy-Item -Path "libclash\windows\FlClashHelperService.exe" -Destination "build\windows\x64\runner\Release\" -Force
+          Write-Host "Core files copied successfully"
+          Get-ChildItem "build\windows\x64\runner\Release\" | Format-Table Name, Length
+        
       - name: Archive Windows Build
         run: |
           Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath ${{ github.event.inputs.appName }}-Windows.zip
