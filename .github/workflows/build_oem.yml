@@ -156,15 +156,66 @@ jobs:
             --fallbackUrl="${{ github.event.inputs.fallbackUrl }}" `
             --iconPath="${{ github.event.inputs.iconUrl != '' && github.event.inputs.iconUrl || 'assets/images/icon.png' }}"
             
-      - name: Clean Build Cache
+      - name: Prepare Build Environment
         run: |
-          flutter clean
+          # 注意：不执行 flutter clean，因为这可能导致构建问题
+          # 只确保依赖是最新的
           flutter pub get
+          
+          # 验证 OEM 配置更新成功
+          Write-Host "=== Verifying OEM Config Changes ==="
+          if (Test-Path "windows/runner/Runner.rc") {
+            Get-Content "windows/runner/Runner.rc" | Select-String -Pattern "FileDescription|ProductName" | ForEach-Object { Write-Host $_ }
+          }
+
             
       - name: Build Windows (using same method as main build)
         run: |
           # 使用与主构建相同的方式
           dart setup.dart windows --arch amd64 --env stable
+          
+      - name: Verify Build Output
+        run: |
+          Write-Host "=== Checking build output ==="
+          
+          # 检查 dist 目录
+          if (Test-Path "dist") {
+            Write-Host "dist directory exists:"
+            Get-ChildItem -Path "dist" -Recurse | ForEach-Object {
+              Write-Host "  $($_.FullName) - $($_.Length) bytes"
+            }
+          } else {
+            Write-Host "ERROR: dist directory does not exist!"
+          }
+          
+          # 检查原始 Flutter 构建产物
+          $releasePath = "build/windows/x64/runner/Release"
+          if (Test-Path $releasePath) {
+            Write-Host "`n=== Flutter Release build output ==="
+            Get-ChildItem -Path $releasePath -Recurse | ForEach-Object {
+              Write-Host "  $($_.FullName) - $($_.Length) bytes"
+            }
+            
+            # 检查主 exe 大小
+            $mainExe = Get-ChildItem -Path $releasePath -Filter "*.exe" | Where-Object { $_.Name -notlike "*Helper*" -and $_.Name -notlike "*Core*" } | Select-Object -First 1
+            if ($mainExe) {
+              Write-Host "`nMain EXE: $($mainExe.Name) = $($mainExe.Length) bytes"
+              if ($mainExe.Length -lt 1000000) {
+                Write-Host "WARNING: EXE is suspiciously small! Expected > 1MB"
+              }
+            }
+          } else {
+            Write-Host "WARNING: Release path not found: $releasePath"
+          }
+          
+          # 检查 libclash 目录
+          if (Test-Path "libclash/windows") {
+            Write-Host "`n=== libclash/windows contents ==="
+            Get-ChildItem -Path "libclash/windows" -Recurse | ForEach-Object {
+              Write-Host "  $($_.FullName) - $($_.Length) bytes"
+            }
+          }
+
           
       - name: Prepare Final Package
         run: |
@@ -176,26 +227,74 @@ jobs:
           # 找到 zip 文件
           $zipFile = Get-ChildItem $distDir -Filter "*.zip" | Select-Object -First 1
           if ($zipFile) {
+            Write-Host "Found zip: $($zipFile.FullName)"
+            
             # 解压到临时目录
             $tempDir = "temp_extract"
+            if (Test-Path $tempDir) {
+              Remove-Item -Path $tempDir -Recurse -Force
+            }
             Expand-Archive -Path $zipFile.FullName -DestinationPath $tempDir -Force
+            
+            Write-Host "=== Extracted contents ==="
+            Get-ChildItem $tempDir -Recurse | Format-Table FullName, Length
+            
+            # 查找所有 exe 文件
+            Write-Host "=== Looking for TianQue.exe ==="
+            $allExes = Get-ChildItem $tempDir -Filter "*.exe" -Recurse
+            foreach ($exe in $allExes) {
+              Write-Host "Found exe: $($exe.FullName) (Size: $($exe.Length) bytes)"
+            }
             
             # 重命名可执行文件
             $binaryName = "${{ github.event.inputs.binaryName }}"
             if ($binaryName -and $binaryName -ne "") {
-              $exeFile = Get-ChildItem $tempDir -Filter "*.exe" -Recurse | Where-Object { $_.Name -eq "TianQue.exe" } | Select-Object -First 1
+              $exeFile = Get-ChildItem $tempDir -Filter "TianQue.exe" -Recurse | Select-Object -First 1
               if ($exeFile) {
+                Write-Host "Found TianQue.exe at: $($exeFile.FullName)"
+                Write-Host "File size: $($exeFile.Length) bytes"
                 $newName = "$binaryName.exe"
                 $newPath = Join-Path $exeFile.Directory.FullName $newName
                 Move-Item -Path $exeFile.FullName -Destination $newPath -Force
                 Write-Host "Renamed TianQue.exe to $newName"
+                
+                # 验证重命名后的文件
+                $renamedFile = Get-Item $newPath
+                Write-Host "Renamed file size: $($renamedFile.Length) bytes"
+              } else {
+                Write-Host "WARNING: TianQue.exe not found in extracted files!"
+                # 列出所有可能的主程序
+                $exeFiles = Get-ChildItem $tempDir -Filter "*.exe" -Recurse | Where-Object { $_.Name -notlike "*Helper*" -and $_.Name -notlike "*Core*" }
+                if ($exeFiles) {
+                  Write-Host "Available main exes:"
+                  foreach ($ex in $exeFiles) {
+                    Write-Host "  $($ex.Name) at $($ex.FullName)"
+                  }
+                }
               }
             }
             
-            # 重新打包
+            # 查找解压后的实际内容目录
+            # flutter_distributor 可能会在 zip 内创建子目录
+            $contentDir = $tempDir
+            $subdirs = Get-ChildItem $tempDir -Directory
+            if ($subdirs.Count -eq 1 -and (Get-ChildItem $tempDir -File).Count -eq 0) {
+              # 只有一个子目录且没有文件，说明内容在子目录中
+              $contentDir = $subdirs[0].FullName
+              Write-Host "Content is in subdirectory: $contentDir"
+            }
+            
+            # 重新打包 - 使用内容目录
             $finalZip = "${{ github.event.inputs.appName }}-Windows.zip"
-            Compress-Archive -Path "$tempDir\*" -DestinationPath $finalZip -Force
+            if (Test-Path $finalZip) {
+              Remove-Item $finalZip -Force
+            }
+            Compress-Archive -Path "$contentDir\*" -DestinationPath $finalZip -Force
             Write-Host "Created final package: $finalZip"
+            
+            # 验证最终包
+            $finalZipInfo = Get-Item $finalZip
+            Write-Host "Final package size: $($finalZipInfo.Length) bytes"
           } else {
             Write-Error "No zip file found in dist directory!"
             exit 1

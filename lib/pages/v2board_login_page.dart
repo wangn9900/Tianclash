@@ -157,6 +157,13 @@ class _V2BoardLoginPageState extends State<V2BoardLoginPage> {
       dio.options.followRedirects = true;
       dio.options.maxRedirects = 5;
       
+      // 添加 User-Agent 以支持 Cloudflare CDN
+      dio.options.headers = {
+        'User-Agent': 'TianQue/1.0 (FlClash; Dart)',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+      };
+      
       print('Checking availability for: $baseUrl');
       
       // 首先尝试基础健康检查
@@ -164,14 +171,37 @@ class _V2BoardLoginPageState extends State<V2BoardLoginPage> {
         final response = await dio.get(
           '$baseUrl/api/v1/guest/comm/config',
           options: Options(
-            sendTimeout: const Duration(seconds: 5),
-            receiveTimeout: const Duration(seconds: 5),
+            sendTimeout: const Duration(seconds: 10),
+            receiveTimeout: const Duration(seconds: 10),
             followRedirects: true,
             validateStatus: (status) => status != null && status < 500,
           ),
         );
         print('Response for $baseUrl: ${response.statusCode}');
+        
+        // 检查是否是 Cloudflare 挑战页面
+        final contentType = response.headers.value('content-type') ?? '';
+        final cfRay = response.headers.value('cf-ray');
+        if (cfRay != null) {
+          print('Cloudflare CDN detected (cf-ray: $cfRay)');
+        }
+        
         if (response.statusCode == 200) {
+          // 验证是否返回了有效的 JSON 数据
+          if (contentType.contains('application/json') || 
+              (response.data != null && response.data.toString().startsWith('{'))) {
+            return true;
+          }
+          // 如果是 HTML 且包含 Cloudflare 挑战，返回 true 但记录警告
+          if (contentType.contains('text/html') && cfRay != null) {
+            print('Warning: Cloudflare challenge page detected, but treating as available');
+            return true;
+          }
+        }
+        
+        // 403 可能是 Cloudflare 的防护，但域名可达
+        if (response.statusCode == 403 && cfRay != null) {
+          print('Cloudflare protection active, but server is reachable');
           return true;
         }
       } catch (e) {
@@ -184,8 +214,8 @@ class _V2BoardLoginPageState extends State<V2BoardLoginPage> {
         final rootResponse = await dio.get(
           baseUrl,
           options: Options(
-            sendTimeout: const Duration(seconds: 5),
-            receiveTimeout: const Duration(seconds: 5),
+            sendTimeout: const Duration(seconds: 10),
+            receiveTimeout: const Duration(seconds: 10),
             followRedirects: true,
             validateStatus: (status) => status != null && status < 500,
           ),
@@ -197,8 +227,8 @@ class _V2BoardLoginPageState extends State<V2BoardLoginPage> {
           final apiResponse = await dio.get(
             '$baseUrl/api/v1/guest/comm/config',
             options: Options(
-              sendTimeout: const Duration(seconds: 5),
-              receiveTimeout: const Duration(seconds: 5),
+              sendTimeout: const Duration(seconds: 10),
+              receiveTimeout: const Duration(seconds: 10),
               validateStatus: (status) => status != null && status < 500,
             ),
           );
@@ -349,6 +379,20 @@ class _V2BoardLoginPageState extends State<V2BoardLoginPage> {
       await _saveCredentials();
       await globalState.appController
           .addProfileFormURL(result.url, jwt: result.token);
+      
+      // 在 Android 上，确保配置正确应用
+      // 等待一下让配置文件写入完成
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      // 强制应用配置
+      try {
+        print('V2BoardLoginPage: Force applying profile after login...');
+        await globalState.appController.applyProfile(silence: true);
+        print('V2BoardLoginPage: Profile applied successfully');
+      } catch (e) {
+        print('V2BoardLoginPage: Apply profile error: $e');
+      }
+      
       if (mounted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const HomePage()),

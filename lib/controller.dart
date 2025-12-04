@@ -614,8 +614,22 @@ class AppController {
     // If startTime is not null, it means the service is running
     final isServiceRunning = globalState.isStart;
     final autoRun = _ref.read(appSettingProvider).autoRun;
+    
+    // 检查是否有有效配置
+    // 如果没有配置，不应该显示已连接状态
+    final hasValidProfile = _ref.read(currentProfileProvider) != null;
+    
+    print('AppController: _initStatus - isServiceRunning: $isServiceRunning, autoRun: $autoRun, hasValidProfile: $hasValidProfile');
 
-    print('AppController: _initStatus - isServiceRunning: $isServiceRunning, autoRun: $autoRun');
+    // 如果没有有效配置，强制设置为断开状态
+    if (!hasValidProfile) {
+      print('AppController: No valid profile, forcing disconnected state...');
+      if (isServiceRunning) {
+        await globalState.handleStop();
+      }
+      _ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
+      return;
+    }
 
     if (isServiceRunning) {
       // CRITICAL: Verify the core is actually running, not just the service

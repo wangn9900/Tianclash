@@ -172,23 +172,48 @@ extension ProfileExtension on Profile {
         realUrl = convert.utf8.decode(convert.base64.decode(base64Str));
       } catch (_) {}
     }
-    final response = await request.getFileResponseForUrl(realUrl);
-    final disposition = response.headers.value('content-disposition');
-    final userinfo = response.headers.value('subscription-userinfo');
-    return await copyWith(
-      label: label ?? utils.getFileNameForDisposition(disposition) ?? id,
-      subscriptionInfo:
-          userinfo != null ? SubscriptionInfo.formHString(userinfo) : subscriptionInfo,
-    ).saveFile(response.data);
+    print('Profile.update: Fetching config from: $realUrl');
+    
+    try {
+      final response = await request.getFileResponseForUrl(realUrl);
+      print('Profile.update: Response status: ${response.statusCode}');
+      print('Profile.update: Response data length: ${response.data?.length ?? 0} bytes');
+      
+      final disposition = response.headers.value('content-disposition');
+      final userinfo = response.headers.value('subscription-userinfo');
+      print('Profile.update: userinfo header: $userinfo');
+      
+      return await copyWith(
+        label: label ?? utils.getFileNameForDisposition(disposition) ?? id,
+        subscriptionInfo:
+            userinfo != null ? SubscriptionInfo.formHString(userinfo) : subscriptionInfo,
+      ).saveFile(response.data);
+    } catch (e) {
+      print('Profile.update: Error fetching config: $e');
+      rethrow;
+    }
   }
 
   Future<Profile> saveFile(Uint8List bytes) async {
-    final message = await coreController.validateConfigFormBytes(bytes);
-    if (message.isNotEmpty) {
-      throw message;
+    print('Profile.saveFile: Validating config, ${bytes.length} bytes');
+    
+    try {
+      final message = await coreController.validateConfigFormBytes(bytes);
+      if (message.isNotEmpty) {
+        print('Profile.saveFile: Validation failed: $message');
+        throw message;
+      }
+      print('Profile.saveFile: Validation passed');
+      
+      final file = await getFile();
+      print('Profile.saveFile: Saving to: ${file.path}');
+      await file.writeAsBytes(bytes);
+      print('Profile.saveFile: File saved successfully');
+      
+      return copyWith(lastUpdateDate: DateTime.now());
+    } catch (e) {
+      print('Profile.saveFile: Error: $e');
+      rethrow;
     }
-    final file = await getFile();
-    await file.writeAsBytes(bytes);
-    return copyWith(lastUpdateDate: DateTime.now());
   }
 }

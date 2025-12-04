@@ -10,12 +10,27 @@ class V2BoardService {
     _dio.options.validateStatus = (status) {
       return status != null && status < 500;
     };
+    // 添加默认请求头以支持 Cloudflare CDN
+    _dio.options.headers = {
+      'User-Agent': 'TianQue/1.0 (FlClash; Dart)',
+      'Accept': 'application/json, text/plain, */*',
+      'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+    };
+    // 增加超时时间以适应 Cloudflare CDN
+    _dio.options.connectTimeout = const Duration(seconds: 15);
+    _dio.options.receiveTimeout = const Duration(seconds: 15);
+    _dio.options.sendTimeout = const Duration(seconds: 15);
+    // 允许重定向
+    _dio.options.followRedirects = true;
+    _dio.options.maxRedirects = 5;
+    
     (_dio.httpClientAdapter as IOHttpClientAdapter).createHttpClient = () {
       final client = HttpClient();
       client.badCertificateCallback = (X509Certificate cert, String host, int port) => true;
       return client;
     };
   }
+
 
   Future<({String url, String token})?> loginAndGetSubscribeUrl(
       String baseUrl, String email, String password) async {

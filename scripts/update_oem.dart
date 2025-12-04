@@ -394,10 +394,80 @@ Future<void> updateIcons(String iconPath) async {
     } else {
       print('❌ 图标生成失败: ${result.stderr}');
     }
+    
+    // 更新 Windows 托盘图标
+    await updateTrayIcons(iconPath);
   } else {
     print('⚠️ 警告: 找不到 flutter_launcher_icons.yaml');
   }
 }
+
+Future<void> updateTrayIcons(String iconPath) async {
+  print('🔄 更新托盘图标...');
+  
+  // 托盘图标路径列表
+  final trayIconPaths = [
+    'assets/images/icon.ico',
+    'assets/images/icon.png',
+  ];
+  
+  // 检查源图标文件
+  final sourceFile = File(iconPath);
+  if (!await sourceFile.exists()) {
+    print('⚠️ 警告: 源图标文件不存在: $iconPath');
+    return;
+  }
+  
+  // 复制 PNG 版本
+  final pngTargetPath = 'assets/images/icon.png';
+  try {
+    await sourceFile.copy(pngTargetPath);
+    print('   ✓ 已更新: $pngTargetPath');
+  } catch (e) {
+    print('   ⚠️ 更新 $pngTargetPath 失败: $e');
+  }
+  
+  // 对于 ICO 文件，需要转换格式
+  // flutter_launcher_icons 已经生成了 windows/runner/resources/app_icon.ico
+  // 我们复制这个文件到托盘图标位置
+  final generatedIcoPath = 'windows/runner/resources/app_icon.ico';
+  final icoFile = File(generatedIcoPath);
+  if (await icoFile.exists()) {
+    final icoTargetPath = 'assets/images/icon.ico';
+    try {
+      await icoFile.copy(icoTargetPath);
+      print('   ✓ 已更新: $icoTargetPath');
+    } catch (e) {
+      print('   ⚠️ 更新 $icoTargetPath 失败: $e');
+    }
+    
+    // 同时更新深色/浅色版本的图标（如果需要）
+    final iconWhitePath = 'assets/images/icon_white.ico';
+    final iconBlackPath = 'assets/images/icon_black.ico';
+    try {
+      await icoFile.copy(iconWhitePath);
+      await icoFile.copy(iconBlackPath);
+      print('   ✓ 已更新深色/浅色托盘图标');
+    } catch (e) {
+      print('   ⚠️ 更新深色/浅色图标失败: $e');
+    }
+    
+    // 更新 PNG 版本的托盘图标
+    final iconWhitePngPath = 'assets/images/icon_white.png';
+    final iconBlackPngPath = 'assets/images/icon_black.png';
+    try {
+      await sourceFile.copy(iconWhitePngPath);
+      await sourceFile.copy(iconBlackPngPath);
+      print('   ✓ 已更新 PNG 托盘图标');
+    } catch (e) {
+      print('   ⚠️ 更新 PNG 托盘图标失败: $e');
+    }
+  } else {
+    print('   ⚠️ 警告: 未找到生成的 ICO 文件: $generatedIcoPath');
+    print('   💡 提示: 请确保 flutter_launcher_icons 已正确运行');
+  }
+}
+
 
 Future<void> updateMacosAppInfo(String appName, String packageName) async {
   print('🔄 更新 macOS 应用信息...');
