@@ -60,19 +60,39 @@ void main(List<String> args) async {
   print('   - 图标路径: $iconPath');
 
   // 3. 如果提供了网络图标URL,先下载图标
+  bool skipIconGeneration = false;
   if (iconPath.startsWith('http')) {
     print('⬇️ 检测到网络图标,正在下载...');
     try {
       final request = await HttpClient().getUrl(Uri.parse(iconPath));
       final response = await request.close();
+      
+      if (response.statusCode != 200) {
+        throw Exception('HTTP ${response.statusCode}');
+      }
+      
       final localIconPath = 'assets/images/oem_icon.png';
-      await response.pipe(File(localIconPath).openWrite());
+      final localFile = File(localIconPath);
+      
+      // 确保目录存在
+      await localFile.parent.create(recursive: true);
+      
+      // 下载文件
+      final sink = localFile.openWrite();
+      await response.pipe(sink);
+      await sink.close();
+      
+      // 验证文件是否下载成功
+      if (!await localFile.exists() || await localFile.length() == 0) {
+        throw Exception('Downloaded file is empty or does not exist');
+      }
+      
       iconPath = localIconPath;
-      print('✅ 图标下载完成: $localIconPath');
+      print('✅ 图标下载完成: $localIconPath (${await localFile.length()} bytes)');
     } catch (e) {
       print('❌ 图标下载失败: $e');
-      print('⚠️ 将使用默认图标');
-      iconPath = 'assets/images/icon.png';
+      print('⚠️ 将跳过图标生成步骤');
+      skipIconGeneration = true;
     }
   }
 
@@ -90,7 +110,12 @@ void main(List<String> args) async {
 
   await updateOssUrl(ossUrl, appName, backupUrls: backupUrlsList, fallbackUrl: fallbackUrl);
   await updateImgBBKey(imgbbApiKey);
-  await updateIcons(iconPath);
+  
+  if (!skipIconGeneration) {
+    await updateIcons(iconPath);
+  } else {
+    print('⏭️ 跳过图标生成步骤');
+  }
 
   print('✅ 所有 OEM 配置更新完成!');
 }
