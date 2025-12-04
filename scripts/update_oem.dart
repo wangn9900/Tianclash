@@ -105,6 +105,7 @@ void main(List<String> args) async {
   // 4. 执行更新
   await updateAndroidBuildGradle(packageName);
   await updateAndroidManifest(appName);
+  await updateAndroidDisableGoogleServices();  // Disable Google Services for OEM builds
   await updateWindowsRunnerRc(appName, packageName);
   
   if (binaryName != null && binaryName.isNotEmpty) {
@@ -166,6 +167,71 @@ Future<void> updateAndroidBuildGradle(String packageName) async {
     await file.writeAsString(content);
   } else {
     print('⚠️ 警告: 找不到 android/app/build.gradle.kts');
+  }
+}
+
+Future<void> updateAndroidDisableGoogleServices() async {
+  print('🔄 禁用 Google Services 插件 (OEM 构建)...');
+  
+  // 1. Remove google-services.json
+  final googleServicesFile = File('android/app/google-services.json');
+  if (await googleServicesFile.exists()) {
+    await googleServicesFile.delete();
+    print('   ✓ 已删除 google-services.json');
+  }
+  
+  // 2. Comment out Google Services plugin in build.gradle.kts
+  final buildGradleFile = File('android/app/build.gradle.kts');
+  if (await buildGradleFile.exists()) {
+    var content = await buildGradleFile.readAsString();
+    
+    // Comment out the google-services plugin
+    content = content.replaceAll(
+      'id("com.google.gms.google-services")',
+      '// id("com.google.gms.google-services") // Disabled for OEM build',
+    );
+    
+    // Comment out crashlytics plugin
+    content = content.replaceAll(
+      'id("com.google.firebase.crashlytics")',
+      '// id("com.google.firebase.crashlytics") // Disabled for OEM build',
+    );
+    
+    // Comment out Firebase dependencies
+    content = content.replaceAll(
+      'implementation(platform(libs.firebase.bom))',
+      '// implementation(platform(libs.firebase.bom)) // Disabled for OEM build',
+    );
+    content = content.replaceAll(
+      'implementation(libs.firebase.crashlytics.ndk)',
+      '// implementation(libs.firebase.crashlytics.ndk) // Disabled for OEM build',
+    );
+    content = content.replaceAll(
+      'implementation(libs.firebase.analytics)',
+      '// implementation(libs.firebase.analytics) // Disabled for OEM build',
+    );
+    
+    await buildGradleFile.writeAsString(content);
+    print('   ✓ 已禁用 build.gradle.kts 中的 Google Services 插件');
+  }
+  
+  // 3. Also update the root build.gradle.kts if needed
+  final rootBuildGradleFile = File('android/build.gradle.kts');
+  if (await rootBuildGradleFile.exists()) {
+    var content = await rootBuildGradleFile.readAsString();
+    
+    // Comment out the google-services plugin classpath if present
+    content = content.replaceAll(
+      RegExp(r'id\("com\.google\.gms\.google-services"\)\s*version\s*"[^"]*"\s*apply\s*false'),
+      '// id("com.google.gms.google-services") version "..." apply false // Disabled for OEM build',
+    );
+    content = content.replaceAll(
+      RegExp(r'id\("com\.google\.firebase\.crashlytics"\)\s*version\s*"[^"]*"\s*apply\s*false'),
+      '// id("com.google.firebase.crashlytics") version "..." apply false // Disabled for OEM build',
+    );
+    
+    await rootBuildGradleFile.writeAsString(content);
+    print('   ✓ 已更新根 build.gradle.kts');
   }
 }
 
