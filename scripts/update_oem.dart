@@ -28,6 +28,8 @@ void main(List<String> args) async {
     imgbbApiKey = argMap['imgbbApiKey'];
     iconPath = argMap['iconPath'];
   }
+  
+  String? binaryName = argMap['binaryName'];
 
   // 2. 如果参数不全,尝试读取配置文件
   if (appName == null || packageName == null || ossUrl == null || imgbbApiKey == null || iconPath == null) {
@@ -42,6 +44,7 @@ void main(List<String> args) async {
       ossUrl ??= config['ossUrl'];
       imgbbApiKey ??= config['imgbbApiKey'];
       iconPath ??= config['iconPath'];
+      binaryName ??= config['binaryName'];
     }
   }
 
@@ -58,6 +61,9 @@ void main(List<String> args) async {
   print('   - OSS URL: $ossUrl');
   print('   - ImgBB Key: $imgbbApiKey');
   print('   - 图标路径: $iconPath');
+  if (binaryName != null) {
+    print('   - 可执行文件名: $binaryName');
+  }
 
   // 3. 如果提供了网络图标URL,先下载图标
   bool skipIconGeneration = false;
@@ -101,6 +107,10 @@ void main(List<String> args) async {
   await updateAndroidManifest(appName);
   await updateWindowsRunnerRc(appName, packageName);
   
+  if (binaryName != null && binaryName.isNotEmpty) {
+    await updateWindowsCMakeLists(binaryName);
+  }
+  
   // Parse backup URLs if provided (comma separated)
   List<String>? backupUrlsList;
   if (argMap['backupUrls'] != null && argMap['backupUrls']!.isNotEmpty) {
@@ -118,6 +128,21 @@ void main(List<String> args) async {
   }
 
   print('✅ 所有 OEM 配置更新完成!');
+}
+
+Future<void> updateWindowsCMakeLists(String binaryName) async {
+  print('🔄 更新 Windows 可执行文件名...');
+  final file = File('windows/CMakeLists.txt');
+  if (await file.exists()) {
+    var content = await file.readAsString();
+    content = content.replaceAll(
+      RegExp(r'set\(BINARY_NAME ".*"\)'),
+      'set(BINARY_NAME "$binaryName")',
+    );
+    await file.writeAsString(content);
+  } else {
+    print('⚠️ 警告: 找不到 windows/CMakeLists.txt');
+  }
 }
 
 Future<void> updateAndroidBuildGradle(String packageName) async {

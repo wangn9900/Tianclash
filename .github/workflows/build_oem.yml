@@ -7,6 +7,10 @@ on:
         description: 'App Name (应用名称)'
         required: true
         default: '天阙'
+      binaryName:
+        description: 'Binary Name (可执行文件名, 英文/拼音)'
+        required: true
+        default: 'TianQue'
       packageName:
         description: 'Package Name (包名)'
         required: true
@@ -67,6 +71,7 @@ jobs:
         run: |
           dart run scripts/update_oem.dart \
             --appName="${{ github.event.inputs.appName }}" \
+            --binaryName="${{ github.event.inputs.binaryName }}" \
             --packageName="${{ github.event.inputs.packageName }}" \
             --ossUrl="${{ github.event.inputs.ossUrl }}" \
             --imgbbApiKey="${{ github.event.inputs.imgbbApiKey }}" \
@@ -140,6 +145,7 @@ jobs:
         run: |
           dart run scripts/update_oem.dart `
             --appName="${{ github.event.inputs.appName }}" `
+            --binaryName="${{ github.event.inputs.binaryName }}" `
             --packageName="${{ github.event.inputs.packageName }}" `
             --ossUrl="${{ github.event.inputs.ossUrl }}" `
             --imgbbApiKey="${{ github.event.inputs.imgbbApiKey }}" `
@@ -191,6 +197,7 @@ jobs:
         run: |
           dart run scripts/update_oem.dart \
             --appName="${{ github.event.inputs.appName }}" \
+            --binaryName="${{ github.event.inputs.binaryName }}" \
             --packageName="${{ github.event.inputs.packageName }}" \
             --ossUrl="${{ github.event.inputs.ossUrl }}" \
             --imgbbApiKey="${{ github.event.inputs.imgbbApiKey }}" \
@@ -250,6 +257,7 @@ jobs:
         run: |
           dart run scripts/update_oem.dart \
             --appName="${{ github.event.inputs.appName }}" \
+            --binaryName="${{ github.event.inputs.binaryName }}" \
             --packageName="${{ github.event.inputs.packageName }}" \
             --ossUrl="${{ github.event.inputs.ossUrl }}" \
             --imgbbApiKey="${{ github.event.inputs.imgbbApiKey }}" \
