@@ -21,9 +21,9 @@ val localProperties = Properties().apply {
 }
 
 val mStoreFile: File = file("keystore.jks")
-val mStorePassword: String? = localProperties.getProperty("storePassword")
-val mKeyAlias: String? = localProperties.getProperty("keyAlias")
-val mKeyPassword: String? = localProperties.getProperty("keyPassword")
+val mStorePassword: String? = System.getenv("KEYSTORE_PASSWORD") ?: System.getenv("STORE_PASSWORD") ?: localProperties.getProperty("storePassword")
+val mKeyAlias: String? = System.getenv("KEY_ALIAS") ?: localProperties.getProperty("keyAlias")
+val mKeyPassword: String? = System.getenv("KEY_PASSWORD") ?: localProperties.getProperty("keyPassword")
 
 android {
     namespace = "com.follow.clash"
