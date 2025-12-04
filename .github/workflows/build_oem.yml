@@ -226,79 +226,109 @@ jobs:
           
           # 找到 zip 文件
           $zipFile = Get-ChildItem $distDir -Filter "*.zip" | Select-Object -First 1
-          if ($zipFile) {
-            Write-Host "Found zip: $($zipFile.FullName)"
-            
-            # 解压到临时目录
-            $tempDir = "temp_extract"
-            if (Test-Path $tempDir) {
-              Remove-Item -Path $tempDir -Recurse -Force
-            }
-            Expand-Archive -Path $zipFile.FullName -DestinationPath $tempDir -Force
-            
-            Write-Host "=== Extracted contents ==="
-            Get-ChildItem $tempDir -Recurse | Format-Table FullName, Length
-            
-            # 查找所有 exe 文件
-            Write-Host "=== Looking for TianQue.exe ==="
-            $allExes = Get-ChildItem $tempDir -Filter "*.exe" -Recurse
-            foreach ($exe in $allExes) {
-              Write-Host "Found exe: $($exe.FullName) (Size: $($exe.Length) bytes)"
-            }
-            
-            # 重命名可执行文件
-            $binaryName = "${{ github.event.inputs.binaryName }}"
-            if ($binaryName -and $binaryName -ne "") {
-              $exeFile = Get-ChildItem $tempDir -Filter "TianQue.exe" -Recurse | Select-Object -First 1
-              if ($exeFile) {
-                Write-Host "Found TianQue.exe at: $($exeFile.FullName)"
-                Write-Host "File size: $($exeFile.Length) bytes"
-                $newName = "$binaryName.exe"
-                $newPath = Join-Path $exeFile.Directory.FullName $newName
-                Move-Item -Path $exeFile.FullName -Destination $newPath -Force
-                Write-Host "Renamed TianQue.exe to $newName"
-                
-                # 验证重命名后的文件
-                $renamedFile = Get-Item $newPath
-                Write-Host "Renamed file size: $($renamedFile.Length) bytes"
-              } else {
-                Write-Host "WARNING: TianQue.exe not found in extracted files!"
-                # 列出所有可能的主程序
-                $exeFiles = Get-ChildItem $tempDir -Filter "*.exe" -Recurse | Where-Object { $_.Name -notlike "*Helper*" -and $_.Name -notlike "*Core*" }
-                if ($exeFiles) {
-                  Write-Host "Available main exes:"
-                  foreach ($ex in $exeFiles) {
-                    Write-Host "  $($ex.Name) at $($ex.FullName)"
-                  }
-                }
-              }
-            }
-            
-            # 查找解压后的实际内容目录
-            # flutter_distributor 可能会在 zip 内创建子目录
-            $contentDir = $tempDir
-            $subdirs = Get-ChildItem $tempDir -Directory
-            if ($subdirs.Count -eq 1 -and (Get-ChildItem $tempDir -File).Count -eq 0) {
-              # 只有一个子目录且没有文件，说明内容在子目录中
-              $contentDir = $subdirs[0].FullName
-              Write-Host "Content is in subdirectory: $contentDir"
-            }
-            
-            # 重新打包 - 使用内容目录
-            $finalZip = "${{ github.event.inputs.appName }}-Windows.zip"
-            if (Test-Path $finalZip) {
-              Remove-Item $finalZip -Force
-            }
-            Compress-Archive -Path "$contentDir\*" -DestinationPath $finalZip -Force
-            Write-Host "Created final package: $finalZip"
-            
-            # 验证最终包
-            $finalZipInfo = Get-Item $finalZip
-            Write-Host "Final package size: $($finalZipInfo.Length) bytes"
-          } else {
+          if (-not $zipFile) {
             Write-Error "No zip file found in dist directory!"
             exit 1
           }
+          
+          Write-Host "Found zip: $($zipFile.FullName)"
+          Write-Host "Zip file size: $($zipFile.Length) bytes"
+          
+          # 使用 7-Zip 解压（比 Expand-Archive 更可靠）
+          $tempDir = "temp_extract"
+          if (Test-Path $tempDir) {
+            Remove-Item -Path $tempDir -Recurse -Force
+          }
+          New-Item -ItemType Directory -Path $tempDir -Force
+          
+          # 使用 7z 解压
+          & 7z x $zipFile.FullName -o"$tempDir" -y
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "7z not available, falling back to Expand-Archive"
+            Expand-Archive -Path $zipFile.FullName -DestinationPath $tempDir -Force
+          }
+          
+          Write-Host "=== Extracted contents ==="
+          Get-ChildItem $tempDir -Recurse | ForEach-Object {
+            Write-Host "$($_.FullName) - $($_.Length) bytes"
+          }
+          
+          # 查找解压后的实际内容目录
+          $contentDir = $tempDir
+          $subdirs = Get-ChildItem $tempDir -Directory
+          if ($subdirs.Count -eq 1 -and (Get-ChildItem $tempDir -File).Count -eq 0) {
+            $contentDir = $subdirs[0].FullName
+            Write-Host "Content is in subdirectory: $contentDir"
+          }
+          
+          # 重命名可执行文件
+          $binaryName = "${{ github.event.inputs.binaryName }}"
+          if ($binaryName -and $binaryName -ne "") {
+            $exeFile = Get-ChildItem $contentDir -Filter "TianQue.exe" -Recurse | Select-Object -First 1
+            if ($exeFile) {
+              Write-Host "Found TianQue.exe at: $($exeFile.FullName)"
+              Write-Host "Original file size: $($exeFile.Length) bytes"
+              
+              $newName = "$binaryName.exe"
+              $newPath = Join-Path $exeFile.Directory.FullName $newName
+              
+              # 复制而不是移动，以确保文件完整性
+              Copy-Item -Path $exeFile.FullName -Destination $newPath -Force
+              Remove-Item -Path $exeFile.FullName -Force
+              
+              Write-Host "Renamed to: $newPath"
+              
+              # 验证重命名后的文件
+              $renamedFile = Get-Item $newPath
+              Write-Host "New file size: $($renamedFile.Length) bytes"
+              
+              if ($renamedFile.Length -ne $exeFile.Length) {
+                Write-Warning "File size mismatch after rename!"
+              }
+            } else {
+              Write-Warning "TianQue.exe not found!"
+              Get-ChildItem $contentDir -Filter "*.exe" -Recurse | ForEach-Object {
+                Write-Host "Found exe: $($_.FullName)"
+              }
+            }
+          }
+          
+          # 验证 data 目录存在
+          $dataDir = Join-Path $contentDir "data"
+          if (Test-Path $dataDir) {
+            Write-Host "=== data directory contents ==="
+            Get-ChildItem $dataDir -Recurse | ForEach-Object {
+              Write-Host "$($_.FullName) - $($_.Length) bytes"
+            }
+          } else {
+            Write-Error "data directory not found! This will cause the app to fail!"
+          }
+          
+          # 使用 7-Zip 重新打包（比 Compress-Archive 更可靠）
+          $finalZip = "${{ github.event.inputs.appName }}-Windows.zip"
+          if (Test-Path $finalZip) {
+            Remove-Item $finalZip -Force
+          }
+          
+          # 进入内容目录并打包
+          Push-Location $contentDir
+          & 7z a -tzip "../../$finalZip" * -r
+          $zipResult = $LASTEXITCODE
+          Pop-Location
+          
+          if ($zipResult -ne 0) {
+            Write-Host "7z compression failed, falling back to Compress-Archive"
+            Compress-Archive -Path "$contentDir\*" -DestinationPath $finalZip -Force
+          }
+          
+          # 验证最终包
+          $finalZipInfo = Get-Item $finalZip
+          Write-Host "Final package: $finalZip"
+          Write-Host "Final package size: $($finalZipInfo.Length) bytes"
+          
+          # 清理临时目录
+          Remove-Item -Path $tempDir -Recurse -Force
+
           
       - name: Upload Windows Build
         uses: actions/upload-artifact@v4
