@@ -146,25 +146,79 @@ class _V2BoardLoginPageState extends State<V2BoardLoginPage> {
   Future<bool> _checkUrlAvailability(String baseUrl) async {
     try {
       final dio = Dio();
+      // 允许自签名证书
       (dio.httpClientAdapter as IOHttpClientAdapter).createHttpClient = () {
         final client = HttpClient();
         client.badCertificateCallback = (X509Certificate cert, String host, int port) => true;
         return client;
       };
       
+      // 配置允许重定向
+      dio.options.followRedirects = true;
+      dio.options.maxRedirects = 5;
+      
       print('Checking availability for: $baseUrl');
-      // Try to fetch comm config as a health check
-      final response = await dio.get(
-        '$baseUrl/api/v1/guest/comm/config',
-        options: Options(
-          sendTimeout: const Duration(seconds: 3),
-          receiveTimeout: const Duration(seconds: 3),
-        ),
-      );
-      print('Response for $baseUrl: ${response.statusCode}');
-      return response.statusCode == 200;
+      
+      // 首先尝试基础健康检查
+      try {
+        final response = await dio.get(
+          '$baseUrl/api/v1/guest/comm/config',
+          options: Options(
+            sendTimeout: const Duration(seconds: 5),
+            receiveTimeout: const Duration(seconds: 5),
+            followRedirects: true,
+            validateStatus: (status) => status != null && status < 500,
+          ),
+        );
+        print('Response for $baseUrl: ${response.statusCode}');
+        if (response.statusCode == 200) {
+          return true;
+        }
+      } catch (e) {
+        print('Primary check failed for $baseUrl: $e');
+        // 继续尝试其他检查
+      }
+      
+      // 如果主检查失败，尝试直接访问域名根路径
+      try {
+        final rootResponse = await dio.get(
+          baseUrl,
+          options: Options(
+            sendTimeout: const Duration(seconds: 5),
+            receiveTimeout: const Duration(seconds: 5),
+            followRedirects: true,
+            validateStatus: (status) => status != null && status < 500,
+          ),
+        );
+        print('Root response for $baseUrl: ${rootResponse.statusCode}');
+        // 如果能访问根路径，说明域名可达
+        if (rootResponse.statusCode == 200 || rootResponse.statusCode == 302 || rootResponse.statusCode == 301) {
+          // 再次尝试 API
+          final apiResponse = await dio.get(
+            '$baseUrl/api/v1/guest/comm/config',
+            options: Options(
+              sendTimeout: const Duration(seconds: 5),
+              receiveTimeout: const Duration(seconds: 5),
+              validateStatus: (status) => status != null && status < 500,
+            ),
+          );
+          return apiResponse.statusCode == 200;
+        }
+      } catch (e) {
+        print('Root check failed for $baseUrl: $e');
+      }
+      
+      return false;
     } catch (e) {
       print('Error checking $baseUrl: $e');
+      if (e is DioException) {
+        print('DioException type: ${e.type}');
+        print('DioException message: ${e.message}');
+        if (e.response != null) {
+          print('Response status: ${e.response?.statusCode}');
+          print('Response data: ${e.response?.data}');
+        }
+      }
       return false;
     }
   }
