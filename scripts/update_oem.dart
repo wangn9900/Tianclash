@@ -108,9 +108,11 @@ void main(List<String> args) async {
   await updateAndroidDisableGoogleServices();  // Disable Google Services for OEM builds
   await updateWindowsRunnerRc(appName, packageName);
   
-  if (binaryName != null && binaryName.isNotEmpty) {
-    await updateWindowsCMakeLists(binaryName);
-  }
+  // 暂时禁用 BINARY_NAME 修改以测试 Windows 问题
+  // 如果这能解决问题，需要找到更好的方式重命名 exe
+  // if (binaryName != null && binaryName.isNotEmpty) {
+  //   await updateWindowsCMakeLists(binaryName);
+  // }
   
   await updateMacosAppInfo(appName, packageName);
   await updateLinuxAppInfo(appName, packageName, binaryName);

@@ -156,6 +156,12 @@ jobs:
             --fallbackUrl="${{ github.event.inputs.fallbackUrl }}" `
             --iconPath="${{ github.event.inputs.iconUrl != '' && github.event.inputs.iconUrl || 'assets/images/icon.png' }}"
             
+      - name: Clean Build Cache
+        run: |
+          flutter clean
+          # 重新获取依赖
+          flutter pub get
+            
       - name: Build Core and Helper
         id: build_core
         run: |
