@@ -9,11 +9,11 @@ void main(List<String> args) async {
   String? ossUrl;
   String? imgbbApiKey;
   String? iconPath;
+  final argMap = <String, String>{};
 
   // 1. 尝试从命令行参数读取 (格式: --appName="Name" --packageName="com.example")
   if (args.isNotEmpty) {
     print('📥 检测到命令行参数,正在解析...');
-    final argMap = <String, String>{};
     for (var arg in args) {
       if (arg.startsWith('--')) {
         final parts = arg.substring(2).split('=');
