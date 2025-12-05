@@ -218,7 +218,7 @@ extension ProfileExtension on Profile {
         final content = convert.utf8.decode(bytes, allowMalformed: true);
         if (!content.contains('proxies:')) {
            print('Profile.saveFile: No proxies found in config');
-           throw 'Invalid configuration: No proxies found';
+           throw '订阅内容为空，请先购买套餐';
         }
       } catch (e) {
         print('Profile.saveFile: Content check failed: $e');
