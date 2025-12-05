@@ -140,9 +140,9 @@ class V2BoardService {
         var subscribeUrl = response.data['data']['subscribe_url'];
         if (subscribeUrl != null && subscribeUrl is String) {
           if (subscribeUrl.contains('?')) {
-            subscribeUrl += '&flag=clash';
+            subscribeUrl += '&flag=clash.meta';
           } else {
-            subscribeUrl += '?flag=clash';
+            subscribeUrl += '?flag=clash.meta';
           }
           return subscribeUrl;
         }
