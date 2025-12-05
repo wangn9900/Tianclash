@@ -166,89 +166,27 @@ class _V2BoardLoginPageState extends State<V2BoardLoginPage> {
       
       print('Checking availability for: $baseUrl');
       
-      // 首先尝试基础健康检查
-      try {
-        final response = await dio.get(
-          '$baseUrl/api/v1/guest/comm/config',
-          options: Options(
-            sendTimeout: const Duration(seconds: 10),
-            receiveTimeout: const Duration(seconds: 10),
-            followRedirects: true,
-            validateStatus: (status) => status != null && status < 500,
-          ),
-        );
-        print('Response for $baseUrl: ${response.statusCode}');
-        
-        // 检查是否是 Cloudflare 挑战页面
-        final contentType = response.headers.value('content-type') ?? '';
-        final cfRay = response.headers.value('cf-ray');
-        if (cfRay != null) {
-          print('Cloudflare CDN detected (cf-ray: $cfRay)');
-        }
-        
-        if (response.statusCode == 200) {
-          // 验证是否返回了有效的 JSON 数据
-          if (contentType.contains('application/json') || 
-              (response.data != null && response.data.toString().startsWith('{'))) {
-            return true;
-          }
-          // 如果是 HTML 且包含 Cloudflare 挑战，返回 true 但记录警告
-          if (contentType.contains('text/html') && cfRay != null) {
-            print('Warning: Cloudflare challenge page detected, but treating as available');
-            return true;
-          }
-        }
-        
-        // 403 可能是 Cloudflare 的防护，但域名可达
-        if (response.statusCode == 403 && cfRay != null) {
-          print('Cloudflare protection active, but server is reachable');
-          return true;
-        }
-      } catch (e) {
-        print('Primary check failed for $baseUrl: $e');
-        // 继续尝试其他检查
-      }
+      // 简化检查：只访问根路径，任何 < 500 的响应都认为可用
+      final response = await dio.get(
+        baseUrl,
+        options: Options(
+          sendTimeout: const Duration(seconds: 8),
+          receiveTimeout: const Duration(seconds: 8),
+          followRedirects: true,
+          validateStatus: (status) => status != null && status < 500,
+        ),
+      );
       
-      // 如果主检查失败，尝试直接访问域名根路径
-      try {
-        final rootResponse = await dio.get(
-          baseUrl,
-          options: Options(
-            sendTimeout: const Duration(seconds: 10),
-            receiveTimeout: const Duration(seconds: 10),
-            followRedirects: true,
-            validateStatus: (status) => status != null && status < 500,
-          ),
-        );
-        print('Root response for $baseUrl: ${rootResponse.statusCode}');
-        // 如果能访问根路径，说明域名可达
-        if (rootResponse.statusCode == 200 || rootResponse.statusCode == 302 || rootResponse.statusCode == 301) {
-          // 再次尝试 API
-          final apiResponse = await dio.get(
-            '$baseUrl/api/v1/guest/comm/config',
-            options: Options(
-              sendTimeout: const Duration(seconds: 10),
-              receiveTimeout: const Duration(seconds: 10),
-              validateStatus: (status) => status != null && status < 500,
-            ),
-          );
-          return apiResponse.statusCode == 200;
-        }
-      } catch (e) {
-        print('Root check failed for $baseUrl: $e');
+      print('Response for $baseUrl: ${response.statusCode}');
+      
+      // 任何 < 500 的状态码都认为服务器可用
+      if (response.statusCode != null && response.statusCode! < 500) {
+        return true;
       }
       
       return false;
     } catch (e) {
       print('Error checking $baseUrl: $e');
-      if (e is DioException) {
-        print('DioException type: ${e.type}');
-        print('DioException message: ${e.message}');
-        if (e.response != null) {
-          print('Response status: ${e.response?.statusCode}');
-          print('Response data: ${e.response?.data}');
-        }
-      }
       return false;
     }
   }
