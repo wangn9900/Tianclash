@@ -159,7 +159,7 @@ class _V2BoardLoginPageState extends State<V2BoardLoginPage> {
       
       // 添加 User-Agent 以支持 Cloudflare CDN
       dio.options.headers = {
-        'User-Agent': 'TianQue/1.0 (FlClash; Dart)',
+        'User-Agent': globalState.packageInfo.ua,
         'Accept': 'application/json, text/plain, */*',
         'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
       };
@@ -266,7 +266,7 @@ class _V2BoardLoginPageState extends State<V2BoardLoginPage> {
     });
 
     final baseUrl = await _fetchBaseUrl();
-    final service = V2BoardService();
+    final service = V2BoardService(userAgent: globalState.packageInfo.ua);
     final success = await service.sendEmailVerify(baseUrl, _emailController.text);
 
     setState(() {
@@ -290,7 +290,7 @@ class _V2BoardLoginPageState extends State<V2BoardLoginPage> {
     });
 
     final baseUrl = await _fetchBaseUrl();
-    final service = V2BoardService();
+    final service = V2BoardService(userAgent: globalState.packageInfo.ua);
 
     if (_loginMode == LoginMode.login) {
       final result = await service.loginAndGetSubscribeUrl(

@@ -6,13 +6,13 @@ import 'package:dio/io.dart';
 class V2BoardService {
   final Dio _dio = Dio();
 
-  V2BoardService() {
+  V2BoardService({String? userAgent}) {
     _dio.options.validateStatus = (status) {
       return status != null && status < 500;
     };
     // 添加默认请求头以支持 Cloudflare CDN
     _dio.options.headers = {
-      'User-Agent': 'TianQue/1.0 (FlClash; Dart)',
+      'User-Agent': userAgent ?? 'FlClash/1.0 (Dart)',
       'Accept': 'application/json, text/plain, */*',
       'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
     };
