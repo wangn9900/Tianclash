@@ -37,10 +37,15 @@ object GlobalState : CoroutineScope by CoroutineScope(Dispatchers.Default) {
 
     fun setCrashlytics(enable: Boolean) {
         _application?.let {
-            FirebaseApp.initializeApp(it)
-            FirebaseCrashlytics.getInstance().isCrashlyticsCollectionEnabled = enable
-            if (enable) {
-                log("init crashlytics ${it.processName}")
+            try {
+                FirebaseApp.initializeApp(it)
+                FirebaseCrashlytics.getInstance().isCrashlyticsCollectionEnabled = enable
+                if (enable) {
+                    log("init crashlytics ${it.processName}")
+                }
+            } catch (e: Exception) {
+                // Firebase not available (OEM build without google-services.json)
+                log("Firebase not available, skipping crashlytics: ${e.message}")
             }
         }
     }
