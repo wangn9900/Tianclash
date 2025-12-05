@@ -213,13 +213,23 @@ class AppController {
 
   Future<void> addProfile(Profile profile) async {
     _ref.read(profilesProvider.notifier).setProfile(profile);
+    
+    // Sync globalState.config with the latest profiles
+    final currentProfiles = _ref.read(profilesProvider);
+    globalState.config = globalState.config.copyWith(profiles: currentProfiles);
+    
     await savePreferences();
     if (_ref.read(currentProfileIdProvider) != null) return;
     await tryStartCore();
     _ref.read(currentProfileIdProvider.notifier).value = profile.id;
+    
+    // Sync globalState.config with the latest currentProfileId
+    globalState.config = globalState.config.copyWith(currentProfileId: profile.id);
+    
     await savePreferences();
     
     // 强制更新配置，确保新账号的订阅能正确下发
+    print('AppController: addProfile - Syncing config and updating Clash config...');
     await updateClashConfig();
   }
 

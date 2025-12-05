@@ -417,7 +417,7 @@ class GlobalState {
       currentProfileName: config.currentProfile?.label ?? '',
       onlyStatisticsProxy: config.appSetting.onlyStatisticsProxy,
       stopText: appLocalizations.stop,
-      crashlytics: config.appSetting.crashlytics,
+      crashlytics: false, // Force disable to prevent crash in OEM build without Google Services
     );
   }
 
@@ -429,7 +429,18 @@ class GlobalState {
       return {};
     }
     final profileId = profile.id;
-    final configMap = await getProfileConfig(profileId);
+    print('GlobalState: patchRawConfig - profileId: $profileId');
+    
+    Map<String, dynamic>ywConfig = {};
+    try {
+      ywConfig = await getProfileConfig(profileId);
+      print('GlobalState: getProfileConfig returned keys: ${ywConfig.keys.toList()}');
+    } catch (e) {
+      print('GlobalState: getProfileConfig failed: $e');
+      return {};
+    }
+    
+    final configMap = ywConfig;
     final rawConfig = await handleEvaluate(configMap);
     final realPatchConfig = patchConfig.copyWith(
       tun: patchConfig.tun.getRealTun(config.networkProps.routeMode),
