@@ -40,7 +40,9 @@ class CoreLib extends CoreHandlerInterface {
 
   @override
   Future<bool> shutdown() async {
-    await service?.shutdown();
+    try {
+      await service?.shutdown().timeout(const Duration(seconds: 1));
+    } catch (_) {}
     _connectedCompleter = Completer();
     return true;
   }
