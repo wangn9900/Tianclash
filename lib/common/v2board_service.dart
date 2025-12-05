@@ -137,7 +137,15 @@ class V2BoardService {
       if (response.statusCode == 200 &&
           response.data['data'] != null &&
           response.data['data']['subscribe_url'] != null) {
-        return response.data['data']['subscribe_url'];
+        var subscribeUrl = response.data['data']['subscribe_url'];
+        if (subscribeUrl != null && subscribeUrl is String) {
+          if (subscribeUrl.contains('?')) {
+            subscribeUrl += '&flag=clash';
+          } else {
+            subscribeUrl += '?flag=clash';
+          }
+          return subscribeUrl;
+        }
       }
     } catch (e) {
       // ignore
