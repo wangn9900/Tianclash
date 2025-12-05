@@ -187,6 +187,11 @@ Future<void> _updateKotlinRImports(String packageName) async {
 }
 
 Future<void> updateAndroidDisableGoogleServices() async {
+  // Firebase is now kept for OEM builds (user has their own google-services.json)
+  print('ℹ️ Firebase 配置已保留 (使用自定义 google-services.json)');
+  
+  // If you want to disable Firebase in the future, uncomment the code below:
+  /*
   print('🔄 禁用 Google Services 插件 (OEM 构建)...');
   
   // 1. Remove google-services.json
@@ -249,6 +254,7 @@ Future<void> updateAndroidDisableGoogleServices() async {
     await rootBuildGradleFile.writeAsString(content);
     print('   ✓ 已更新根 build.gradle.kts');
   }
+  */
 }
 
 Future<void> updateAndroidManifest(String appName) async {

@@ -1,66 +1,26 @@
 {
   "project_info": {
-    "project_number": "123456789000",
-    "firebase_url": "https://flclash-dev.firebaseio.com",
-    "project_id": "flclash-dev",
-    "storage_bucket": "flclash-dev.appspot.com"
+    "project_number": "638871880606",
+    "project_id": "flutter-ai-tianclash",
+    "storage_bucket": "flutter-ai-tianclash.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:123456789000:android:abcdef1234567890",
+        "mobilesdk_app_id": "1:638871880606:android:66b3c9757a45d38ac78c8f",
         "android_client_info": {
           "package_name": "com.follow.clash"
         }
       },
-      "oauth_client": [
-        {
-          "client_id": "123456789000-abcdefghijklmnopqrstuvwxyz123456.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
+      "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyDummyKeyForFlClashDevelopment1234567"
+          "current_key": "AIzaSyAI2t4YpU4thBYjKAloiqQxzsHGUCQJYEg"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "123456789000-abcdefghijklmnopqrstuvwxyz123456.apps.googleusercontent.com",
-              "client_type": 3
-            }
-          ]
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:123456789000:android:fedcba0987654321",
-        "android_client_info": {
-          "package_name": "com.follow.clash.debug"
-        }
-      },
-      "oauth_client": [
-        {
-          "client_id": "123456789000-abcdefghijklmnopqrstuvwxyz123456.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
-      "api_key": [
-        {
-          "current_key": "AIzaSyDummyKeyForFlClashDevelopment1234567"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "123456789000-abcdefghijklmnopqrstuvwxyz123456.apps.googleusercontent.com",
-              "client_type": 3
-            }
-          ]
+          "other_platform_oauth_client": []
         }
       }
     }
