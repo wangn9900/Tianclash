@@ -108,7 +108,6 @@ object State {
     }
 
     suspend fun handleStopServiceAwait() {
-    suspend fun handleStopServiceAwait() {
         // Removed runLock to prevent potential deadlocks during stop operation
         runStateFlow.tryEmit(RunState.PENDING)
         // Always attempt to stop the service, regardless of previous state, to handle zombie states
@@ -116,7 +115,6 @@ object State {
         runStateFlow.tryEmit(RunState.STOP)
         
         destroyServiceEngine()
-    }
     }
 
     suspend fun destroyServiceEngine() {
