@@ -86,9 +86,31 @@ class _ShopViewState extends ConsumerState<ShopView> {
       return CommonScaffold(
         title: appLocalizations.shop,
         body: Center(
-          child: Text(
-            'Please login via V2Board to access the shop.',
-            style: context.textTheme.titleMedium,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                '请通过网页访问商店购买套餐',
+                style: context.textTheme.titleMedium,
+              ),
+              const SizedBox(height: 16),
+              if (currentProfile != null)
+                FilledButton.icon(
+                  onPressed: () async {
+                    try {
+                      final uri = Uri.parse(currentProfile.url);
+                      final shopUrl = '${uri.scheme}://${uri.host}${uri.hasPort ? ':${uri.port}' : ''}/#/plan';
+                      await launchUrl(Uri.parse(shopUrl), mode: LaunchMode.externalApplication);
+                    } catch (e) {
+                      if (mounted) {
+                        context.showNotifier('无法打开商店页面');
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.open_in_new),
+                  label: const Text('打开网页商店'),
+                ),
+            ],
           ),
         ),
       );
