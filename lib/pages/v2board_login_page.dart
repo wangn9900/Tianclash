@@ -146,45 +146,23 @@ class _V2BoardLoginPageState extends State<V2BoardLoginPage> {
   Future<bool> _checkUrlAvailability(String baseUrl) async {
     try {
       final dio = Dio();
-      // 允许自签名证书
       (dio.httpClientAdapter as IOHttpClientAdapter).createHttpClient = () {
         final client = HttpClient();
         client.badCertificateCallback = (X509Certificate cert, String host, int port) => true;
         return client;
       };
       
-      // 配置允许重定向
-      dio.options.followRedirects = true;
-      dio.options.maxRedirects = 5;
-      
-      // 添加 User-Agent 以支持 Cloudflare CDN
-      dio.options.headers = {
-        'User-Agent': globalState.packageInfo.ua,
-        'Accept': 'application/json, text/plain, */*',
-        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
-      };
-      
       print('Checking availability for: $baseUrl');
-      
-      // 简化检查：只访问根路径，任何 < 500 的响应都认为可用
+      // Try to fetch comm config as a health check
       final response = await dio.get(
-        baseUrl,
+        '$baseUrl/api/v1/guest/comm/config',
         options: Options(
-          sendTimeout: const Duration(seconds: 8),
-          receiveTimeout: const Duration(seconds: 8),
-          followRedirects: true,
-          validateStatus: (status) => status != null && status < 500,
+          sendTimeout: const Duration(seconds: 3),
+          receiveTimeout: const Duration(seconds: 3),
         ),
       );
-      
       print('Response for $baseUrl: ${response.statusCode}');
-      
-      // 任何 < 500 的状态码都认为服务器可用
-      if (response.statusCode != null && response.statusCode! < 500) {
-        return true;
-      }
-      
-      return false;
+      return response.statusCode == 200;
     } catch (e) {
       print('Error checking $baseUrl: $e');
       return false;
@@ -317,20 +295,6 @@ class _V2BoardLoginPageState extends State<V2BoardLoginPage> {
       await _saveCredentials();
       await globalState.appController
           .addProfileFormURL(result.url, jwt: result.token);
-      
-      // 在 Android 上，确保配置正确应用
-      // 等待一下让配置文件写入完成
-      await Future.delayed(const Duration(milliseconds: 500));
-      
-      // 强制应用配置
-      try {
-        print('V2BoardLoginPage: Force applying profile after login...');
-        await globalState.appController.applyProfile(silence: true);
-        print('V2BoardLoginPage: Profile applied successfully');
-      } catch (e) {
-        print('V2BoardLoginPage: Apply profile error: $e');
-      }
-      
       if (mounted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const HomePage()),
