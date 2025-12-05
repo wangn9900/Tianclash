@@ -693,7 +693,13 @@ class AppController {
            } catch (e) {
               print('AppController: Apply profile timed out: $e');
            }
-          await updateStatus(true);
+           
+           if (getCurrentGroups().isEmpty) {
+             print('AppController: Still no groups after re-apply, disconnecting...');
+             await updateStatus(false);
+           } else {
+             await updateStatus(true);
+           }
         }
       }
     } else if (autoRun) {
