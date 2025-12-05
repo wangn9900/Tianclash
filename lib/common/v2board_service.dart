@@ -255,7 +255,7 @@ class V2BoardService {
             'Authorization': token,
           }));
       if (response.statusCode == 200 && response.data['data'] != null) {
-        return response.data['data'];
+        return Map<String, dynamic>.from(response.data['data']);
       }
     } catch (e) {
       print('Error fetching user info: $e');
@@ -268,7 +268,7 @@ class V2BoardService {
     try {
       final response = await _dio.get(url);
       if (response.statusCode == 200 && response.data['data'] != null) {
-        return response.data['data'];
+        return Map<String, dynamic>.from(response.data['data']);
       }
     } catch (e) {
       print('Error fetching comm config: $e');
@@ -515,7 +515,7 @@ class V2BoardService {
           }));
       print('Get invite data response: ${response.data}'); // Debug log
       if (response.statusCode == 200 && response.data['data'] != null) {
-        return response.data['data'];
+        return Map<String, dynamic>.from(response.data['data']);
       }
     } catch (e) {
       print('Error fetching invite data: $e');
@@ -532,7 +532,7 @@ class V2BoardService {
           }));
       print('Get invite details response: ${response.data}'); // Debug log
       if (response.statusCode == 200 && response.data['data'] != null) {
-        return response.data['data'];
+        return Map<String, dynamic>.from(response.data['data']);
       }
     } catch (e) {
       print('Error fetching invite details: $e');

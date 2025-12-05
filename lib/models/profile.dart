@@ -213,6 +213,18 @@ extension ProfileExtension on Profile {
       }
       print('Profile.saveFile: Validation passed');
       
+      // Additional check for proxies
+      try {
+        final content = convert.utf8.decode(bytes, allowMalformed: true);
+        if (!content.contains('proxies:')) {
+           print('Profile.saveFile: No proxies found in config');
+           throw 'Invalid configuration: No proxies found';
+        }
+      } catch (e) {
+        print('Profile.saveFile: Content check failed: $e');
+        rethrow;
+      }
+
       final file = await getFile();
       print('Profile.saveFile: Saving to: ${file.path}');
       await file.writeAsBytes(bytes);
