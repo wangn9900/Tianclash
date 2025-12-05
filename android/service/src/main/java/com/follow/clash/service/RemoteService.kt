@@ -159,6 +159,22 @@ class RemoteService : Service(),
         return binder
     }
 
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        GlobalState.log("RemoteService onTaskRemoved")
+        launch {
+            runLock.withLock {
+                runCatching {
+                    delegate?.useService { service ->
+                        service.stop()
+                    }
+                }
+                State.runTime = 0
+                stopSelf()
+            }
+        }
+    }
+
     override fun onDestroy() {
         GlobalState.log("Remote service destroy")
         super.onDestroy()
