@@ -693,18 +693,6 @@ class AppController {
            } catch (e) {
               print('AppController: Apply profile timed out: $e');
            }
-        }
-      } else {
-        // Service says running but core is not responding
-        // This is a stale state, clean it up
-        print('AppController: Service running but core dead, cleaning up...');
-        await globalState.handleStop();
-        _ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
-        
-        // If autoRun is enabled, start fresh
-        if (autoRun) {
-          print('AppController: AutoRun enabled, starting fresh...');
-          await Future.delayed(const Duration(milliseconds: 500));
           await updateStatus(true);
         }
       }

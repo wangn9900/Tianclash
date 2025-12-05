@@ -101,8 +101,7 @@ class _CoreContainerState extends ConsumerState<CoreManager>
     if (ref.read(coreStatusProvider) != CoreStatus.connected) {
       return;
     }
-    ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
-    await coreController.shutdown();
+    await globalState.appController.updateStatus(false);
     super.onCrash(message);
   }
 }
