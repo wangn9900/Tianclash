@@ -379,33 +379,49 @@ Future<void> updateImgBBKey(String apiKey) async {
 
 Future<void> updateIcons(String iconPath) async {
   print('🔄 更新应用图标配置...');
-  final file = File('flutter_launcher_icons.yaml');
-  if (await file.exists()) {
-    var content = await file.readAsString();
-    // 更新所有 image_path
-    content = content.replaceAll(
-      RegExp(r'image_path: ".*"'),
-      'image_path: "$iconPath"',
-    );
-    await file.writeAsString(content);
+  
+  // 1. 生成最佳实践的 flutter_launcher_icons.yaml
+  final configFile = File('flutter_launcher_icons.yaml');
+  String content = '''
+flutter_launcher_icons:
+  image_path: "$iconPath"
+  android: "ic_launcher"
+  min_sdk_android: 21
+  web:
+    generate: true
+    image_path: "$iconPath"
+  windows:
+    generate: true
+    icon_size: 256
+  macos:
+    generate: true
+    image_path: "$iconPath"
+  linux:
+    generate: true
+    image_path: "$iconPath"
+''';
 
-    print('🎨 生成新图标...');
-    final result = await Process.run(
-      'dart',
-      ['run', 'flutter_launcher_icons'],
-      runInShell: true,
-    );
-    if (result.exitCode == 0) {
-      print('✅ 图标生成成功');
-    } else {
-      print('❌ 图标生成失败: ${result.stderr}');
-    }
-    
-    // 更新 Windows 托盘图标
-    await updateTrayIcons(iconPath);
+  await configFile.writeAsString(content);
+  print('   ✓ 已生成最佳实践配置文件 (包含 256x256 Windows 图标)');
+
+  // 2. 运行生成工具
+  print('🎨 生成新图标...');
+  final result = await Process.run(
+    'dart',
+    ['run', 'flutter_launcher_icons'],
+    runInShell: true,
+  );
+  
+  if (result.exitCode == 0) {
+    print('✅ 图标生成成功');
   } else {
-    print('⚠️ 警告: 找不到 flutter_launcher_icons.yaml');
+    print('❌ 图标生成失败: ${result.stderr}');
+    // 如果失败，尝试打印 stdout 看看详细信息
+    print(result.stdout);
   }
+  
+  // 更新 Windows 托盘图标
+  await updateTrayIcons(iconPath);
 }
 
 Future<void> updateTrayIcons(String iconPath) async {
