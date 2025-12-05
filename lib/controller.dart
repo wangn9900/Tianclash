@@ -120,11 +120,8 @@ class AppController {
              if (groups.isNotEmpty) {
                startSuccess = true;
              } else {
-               print('AppController: Core started but returned no groups.');
-               // Even if no groups, it might be running but just have empty config.
-               // But usually this means something is wrong.
-               // check if running?
-               startSuccess = true; // Tentatively accept if no exception
+               print('AppController: Core started but returned no groups. Treating as failure.');
+               startSuccess = false;
              }
         } catch (e) {
              print('AppController: Core verification failed after start: $e');
@@ -169,11 +166,18 @@ class AppController {
       } else {
         // Revert to disconnected if start failed
         print('AppController: Start failed or validation failed. Reverting to Disconnected.');
-        await globalState.handleStop();
+        if (globalState.isStart) {
+           await globalState.handleStop();
+        }
         coreController.resetTraffic();
         _ref.read(trafficsProvider.notifier).clear();
         _ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
-        // Optional: Show error toast?
+        
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('连接失败：无法加载节点配置')),
+          );
+        }
       }
     } else {
       await globalState.handleStop();
