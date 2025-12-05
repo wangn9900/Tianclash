@@ -9,6 +9,7 @@ import 'package:fl_clash/views/order_confirm.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ShopView extends ConsumerStatefulWidget {
   const ShopView({super.key});
