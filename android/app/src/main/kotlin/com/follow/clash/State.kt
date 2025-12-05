@@ -103,16 +103,20 @@ object State {
 
     fun handleStopService() {
         GlobalState.launch {
-            runLock.withLock {
-                if (runStateFlow.value != RunState.START) {
-                    return@launch
-                }
-                runStateFlow.tryEmit(RunState.PENDING)
-                runTime = Service.stopService()
-                runStateFlow.tryEmit(RunState.STOP)
-            }
-            destroyServiceEngine()
+            handleStopServiceAwait()
         }
+    }
+
+    suspend fun handleStopServiceAwait() {
+        runLock.withLock {
+            if (runStateFlow.value != RunState.START) {
+                return
+            }
+            runStateFlow.tryEmit(RunState.PENDING)
+            runTime = Service.stopService()
+            runStateFlow.tryEmit(RunState.STOP)
+        }
+        destroyServiceEngine()
     }
 
     suspend fun destroyServiceEngine() {

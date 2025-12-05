@@ -90,8 +90,10 @@ class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
     }
 
     private fun handleStop(result: MethodChannel.Result) {
-        State.handleStopService()
-        result.success(true)
+        launch {
+            State.handleStopServiceAwait()
+            result.success(true)
+        }
     }
 
     suspend fun handleGetVpnOptions(): VpnOptions? {
