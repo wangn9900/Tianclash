@@ -357,9 +357,13 @@ jobs:
           BINARY_NAME="${{ github.event.inputs.binaryName }}"
           
           if [ -n "$BINARY_NAME" ] && [ "$BINARY_NAME" != "" ]; then
-            echo "Renaming $ORIGINAL_EXE to $BINARY_NAME"
-            mv "$RELEASE_DIR/$ORIGINAL_EXE" "$RELEASE_DIR/$BINARY_NAME"
-            echo "✓ Renamed successfully"
+            if [ "$ORIGINAL_EXE" = "$BINARY_NAME" ]; then
+              echo "Binary name is same as original ($ORIGINAL_EXE), skipping rename"
+            else
+              echo "Renaming $ORIGINAL_EXE to $BINARY_NAME"
+              mv "$RELEASE_DIR/$ORIGINAL_EXE" "$RELEASE_DIR/$BINARY_NAME"
+              echo "✓ Renamed successfully"
+            fi
           else
             echo "No custom binary name specified, keeping original name"
           fi
