@@ -61,7 +61,7 @@ class AboutView extends StatelessWidget {
           title: Text(appLocalizations.project),
           onTap: () {
             globalState.openUrl(
-              'https://github.com/wxfyes/FlClash',
+              'https://github.com/wangn9900/Tianclash',
             );
           },
           trailing: const Icon(Icons.launch),
