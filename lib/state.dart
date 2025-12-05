@@ -20,6 +20,7 @@ import 'package:material_color_utilities/palettes/core_palette.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:yaml/yaml.dart';
 
 import 'common/common.dart';
 import 'controller.dart';
@@ -573,6 +574,34 @@ class GlobalState {
   }
 
   Future<Map<String, dynamic>> getProfileConfig(String profileId) async {
+    try {
+      final profilesPath = await appPath.profilesPath;
+      final file = File(join(profilesPath, '$profileId.yaml'));
+      
+      if (await file.exists()) {
+        print('GlobalState: Reading profile config directly from ${file.path}');
+        final content = await file.readAsString();
+        if (content.isNotEmpty) {
+           final yamlMap = loadYaml(content);
+           if (yamlMap is Map) {
+             // Convert YamlMap to standard Map recursively
+             final configMap = json.decode(json.encode(yamlMap));
+             if (configMap is Map<String, dynamic>) {
+                if (configMap['rule'] != null) {
+                  configMap['rules'] = configMap['rule'];
+                  configMap.remove('rule');
+                }
+                print('GlobalState: Successfully parsed profile YAML directly.');
+                return configMap;
+             }
+           }
+        }
+      }
+    } catch (e) {
+      print('GlobalState: Failed to read profile YAML directly: $e');
+    }
+
+    print('GlobalState: Fallback to coreController.getConfig');
     final configMap = await coreController.getConfig(profileId);
     configMap['rules'] = configMap['rule'];
     configMap.remove('rule');
