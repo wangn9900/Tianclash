@@ -169,7 +169,10 @@ class GlobalState {
     );
   }
 
-  String get ua => config.patchClashConfig.globalUa ?? packageInfo.ua;
+  String get ua {
+    final userAgent = config.patchClashConfig.globalUa ?? packageInfo.ua;
+    return userAgent.replaceAll(RegExp(r'[^\x00-\x7F]'), '');
+  }
 
   Future<void> startUpdateTasks([UpdateTasks? tasks]) async {
     if (timer != null && timer!.isActive == true) return;

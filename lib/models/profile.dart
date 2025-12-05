@@ -178,6 +178,14 @@ extension ProfileExtension on Profile {
       final response = await request.getFileResponseForUrl(realUrl);
       print('Profile.update: Response status: ${response.statusCode}');
       print('Profile.update: Response data length: ${response.data?.length ?? 0} bytes');
+      if (response.data != null && response.data!.isNotEmpty) {
+        try {
+           final preview = String.fromCharCodes(response.data!.take(100));
+           print('Profile.update: Config preview: $preview');
+        } catch (e) {
+           print('Profile.update: Failed to preview config: $e');
+        }
+      }
       
       final disposition = response.headers.value('content-disposition');
       final userinfo = response.headers.value('subscription-userinfo');
