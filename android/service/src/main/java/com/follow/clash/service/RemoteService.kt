@@ -26,14 +26,15 @@ class RemoteService : Service(),
     CoroutineScope by CoroutineScope(SupervisorJob() + Dispatchers.Default) {
     private fun handleStopService(result: IResultInterface) {
         launch {
-            runLock.withLock {
+            // Removed runLock to prioritize stop command
+            runCatching {
                 delegate?.useService { service ->
                     service.stop()
                     delegate?.unbind()
                 }
-                State.runTime = 0
-                result.onResult(0)
             }
+            State.runTime = 0
+            result.onResult(0)
         }
     }
 
@@ -73,6 +74,8 @@ class RemoteService : Service(),
             }
         }
     }
+
+    // ... (Binder implementation remains unchanged) ...
 
     private val binder = object : IRemoteInterface.Stub() {
         override fun invokeAction(data: String, callback: ICallbackInterface) {
@@ -116,7 +119,7 @@ class RemoteService : Service(),
             handleStopService(result)
         }
 
-        override fun setEventListener(eventListener: IEventInterface?) {
+       override fun setEventListener(eventListener: IEventInterface?) {
             GlobalState.log("RemoveEventListener ${eventListener == null}")
             when (eventListener != null) {
                 true -> Core.callSetEventListener {
@@ -163,15 +166,14 @@ class RemoteService : Service(),
         super.onTaskRemoved(rootIntent)
         GlobalState.log("RemoteService onTaskRemoved")
         launch {
-            runLock.withLock {
-                runCatching {
-                    delegate?.useService { service ->
-                        service.stop()
-                    }
+            // Removed runLock to ensure cleanup happens
+            runCatching {
+                delegate?.useService { service ->
+                    service.stop()
                 }
-                State.runTime = 0
-                stopSelf()
             }
+            State.runTime = 0
+            stopSelf()
         }
     }
 
