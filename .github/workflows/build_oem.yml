@@ -32,7 +32,7 @@ on:
         required: false
         default: 'https://150.241.207.176:8443'
       iconUrl:
-        description: 'Icon URL (图标链接, 可选)'
+        description: 'Icon URL (图标链接, 可�?'
         required: false
         default: 'https://oss.tianque.cc/i8.png'
 
@@ -114,7 +114,7 @@ jobs:
       - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.event.inputs.appName }}-Android
+          name: ${{ github.event.inputs.binaryName }}-Android
           path: |
             build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
             build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
@@ -181,7 +181,7 @@ jobs:
           # Flutter 构建输出目录
           $releaseDir = "build\windows\x64\runner\Release"
           
-          # 检查构建是否成功
+          # 检查构建是否成�?
           if (-not (Test-Path $releaseDir)) {
             Write-Error "Release directory not found: $releaseDir"
             exit 1
@@ -220,7 +220,7 @@ jobs:
           }
           
           # 直接打包 Release 目录（不解压重打包）
-          $finalZip = "${{ github.event.inputs.appName }}-Windows.zip"
+          $finalZip = "${{ github.event.inputs.binaryName }}-Windows.zip"
           
           Write-Host "Creating package: $finalZip"
           
@@ -232,7 +232,7 @@ jobs:
           Write-Host "Final package: $finalZip"
           Write-Host "Final package size: $($finalZipInfo.Length) bytes"
           
-          # 包大小应该至少 50MB（flutter_windows.dll + FlClashCore.exe 等）
+          # 包大小应该至�?50MB（flutter_windows.dll + FlClashCore.exe 等）
           if ($finalZipInfo.Length -lt 50000000) {
             Write-Warning "Package seems too small! Expected > 50MB"
           }
@@ -240,8 +240,8 @@ jobs:
       - name: Upload Windows Build
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.event.inputs.appName }}-Windows
-          path: ${{ github.event.inputs.appName }}-Windows.zip
+          name: ${{ github.event.inputs.binaryName }}-Windows
+          path: ${{ github.event.inputs.binaryName }}-Windows.zip
 
   build-macos:
     name: Build macOS Client
@@ -289,14 +289,14 @@ jobs:
         run: |
           cd build/macos/Build/Products/Release
           APP_NAME=$(ls -d *.app | head -n 1)
-          hdiutil create -volname "${{ github.event.inputs.appName }}" -srcfolder "$APP_NAME" -ov -format UDZO "${{ github.event.inputs.appName }}.dmg"
-          mv "${{ github.event.inputs.appName }}.dmg" ../../../../../
+          hdiutil create -volname "${{ github.event.inputs.appName }}" -srcfolder "$APP_NAME" -ov -format UDZO "${{ github.event.inputs.binaryName }}.dmg"
+          mv "${{ github.event.inputs.binaryName }}.dmg" ../../../../../
           
       - name: Upload macOS Build
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.event.inputs.appName }}-macOS
-          path: ${{ github.event.inputs.appName }}.dmg
+          name: ${{ github.event.inputs.binaryName }}-macOS
+          path: ${{ github.event.inputs.binaryName }}.dmg
 
   build-linux:
     name: Build Linux Client
@@ -359,7 +359,7 @@ jobs:
           if [ -n "$BINARY_NAME" ] && [ "$BINARY_NAME" != "" ]; then
             echo "Renaming $ORIGINAL_EXE to $BINARY_NAME"
             mv "$RELEASE_DIR/$ORIGINAL_EXE" "$RELEASE_DIR/$BINARY_NAME"
-            echo "✓ Renamed successfully"
+            echo "�?Renamed successfully"
           else
             echo "No custom binary name specified, keeping original name"
           fi
@@ -370,13 +370,13 @@ jobs:
       - name: Archive Linux Build
         run: |
           cd build/linux/x64/release/bundle
-          tar -czf ../../../../../${{ github.event.inputs.appName }}-Linux.tar.gz *
+          tar -czf ../../../../../${{ github.event.inputs.binaryName }}-Linux.tar.gz *
           
       - name: Upload Linux Build
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.event.inputs.appName }}-Linux
-          path: ${{ github.event.inputs.appName }}-Linux.tar.gz
+          name: ${{ github.event.inputs.binaryName }}-Linux
+          path: ${{ github.event.inputs.binaryName }}-Linux.tar.gz
 
   # 合并所有平台的构建产物到一个下载包
   merge-artifacts:
@@ -388,7 +388,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: ./all-artifacts
-          pattern: ${{ github.event.inputs.appName }}-*
+          pattern: ${{ github.event.inputs.binaryName }}-*
           merge-multiple: false
           
       - name: List Downloaded Files
@@ -406,7 +406,7 @@ jobs:
           # 复制所有构建文件到 release 目录
           for dir in ./all-artifacts/*/; do
             echo "Processing: $dir"
-            # 复制目录中的所有文件
+            # 复制目录中的所有文�?
             find "$dir" -type f \( -name "*.apk" -o -name "*.zip" -o -name "*.dmg" -o -name "*.tar.gz" \) -exec cp {} ./release/ \;
           done
           
@@ -417,7 +417,7 @@ jobs:
       - name: Upload Merged Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.event.inputs.appName }}-All-Platforms
+          name: ${{ github.event.inputs.binaryName }}-All-Platforms
           path: ./release/
           retention-days: 30
           if-no-files-found: warn
