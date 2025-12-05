@@ -105,29 +105,54 @@ class V2BoardService {
     final loginUrl = '$cleanBaseUrl/api/v1/passport/auth/login';
 
     try {
+      print('V2BoardService: Attempting login to $loginUrl');
       final response = await _dio.post(loginUrl, data: {
         'email': email,
         'password': password,
       });
 
+      print('V2BoardService: Login response status: ${response.statusCode}');
+      print('V2BoardService: Login response data type: ${response.data.runtimeType}');
+      
       if (response.statusCode == 200) {
-        // 显式转换为 Map<String, dynamic>
-        final Map<String, dynamic> responseData = Map<String, dynamic>.from(response.data as Map);
+        // 更安全的类型转换
+        if (response.data is! Map) {
+          print('V2BoardService: Response data is not a Map: ${response.data}');
+          return null;
+        }
+        
+        final responseData = response.data as Map;
+        print('V2BoardService: Response data keys: ${responseData.keys}');
         
         if (responseData['data'] != null) {
-          final Map<String, dynamic> data = Map<String, dynamic>.from(responseData['data'] as Map);
+          if (responseData['data'] is! Map) {
+            print('V2BoardService: data field is not a Map: ${responseData['data']}');
+            return null;
+          }
+          
+          final data = responseData['data'] as Map;
+          print('V2BoardService: data keys: ${data.keys}');
           
           if (data['auth_data'] != null) {
-            final authData = data['auth_data'] as String;
+            final authData = data['auth_data'].toString();
+            print('V2BoardService: Got auth_data, fetching subscribe URL');
             final subscribeUrl = await _getSubscribeUrl(cleanBaseUrl, authData);
             if (subscribeUrl != null) {
+              print('V2BoardService: Login successful, subscribe URL: $subscribeUrl');
               return (url: subscribeUrl, token: authData);
+            } else {
+              print('V2BoardService: Failed to get subscribe URL');
             }
+          } else {
+            print('V2BoardService: auth_data not found in response');
           }
+        } else {
+          print('V2BoardService: data field not found in response');
         }
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       print('V2BoardService: Login error: $e');
+      print('V2BoardService: Stack trace: $stackTrace');
     }
     return null;
   }
@@ -136,24 +161,47 @@ class V2BoardService {
     final url = '$baseUrl/api/v1/user/getSubscribe';
 
     try {
+      print('V2BoardService: Fetching subscribe URL from $url');
       final response = await _dio.get(url,
           options: Options(headers: {
             'Authorization': authData,
           }));
 
+      print('V2BoardService: Subscribe URL response status: ${response.statusCode}');
+      print('V2BoardService: Subscribe URL response data type: ${response.data.runtimeType}');
+      
       if (response.statusCode == 200) {
-        final Map<String, dynamic> responseData = Map<String, dynamic>.from(response.data as Map);
+        if (response.data is! Map) {
+          print('V2BoardService: Subscribe response data is not a Map: ${response.data}');
+          return null;
+        }
+        
+        final responseData = response.data as Map;
+        print('V2BoardService: Subscribe response keys: ${responseData.keys}');
         
         if (responseData['data'] != null) {
-          final Map<String, dynamic> data = Map<String, dynamic>.from(responseData['data'] as Map);
+          if (responseData['data'] is! Map) {
+            print('V2BoardService: Subscribe data field is not a Map: ${responseData['data']}');
+            return null;
+          }
+          
+          final data = responseData['data'] as Map;
+          print('V2BoardService: Subscribe data keys: ${data.keys}');
           
           if (data['subscribe_url'] != null) {
-            return data['subscribe_url'] as String;
+            final subscribeUrl = data['subscribe_url'].toString();
+            print('V2BoardService: Got subscribe URL: $subscribeUrl');
+            return subscribeUrl;
+          } else {
+            print('V2BoardService: subscribe_url not found in data');
           }
+        } else {
+          print('V2BoardService: data field not found in subscribe response');
         }
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       print('V2BoardService: Get subscribe URL error: $e');
+      print('V2BoardService: Stack trace: $stackTrace');
     }
     return null;
   }
