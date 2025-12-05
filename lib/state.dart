@@ -340,11 +340,20 @@ class GlobalState {
 
   Future<void> genConfigFile(ClashConfig pathConfig) async {
     final configFilePath = await appPath.configFilePath;
+    print('GlobalState: Generating config file at $configFilePath');
     var config = {};
     try {
       config = await patchRawConfig(patchConfig: pathConfig);
-    } catch (e) {
-      globalState.showNotifier(e.toString());
+      print('GlobalState: Config patched successfully. Keys: ${config.keys.toList()}');
+      if (config['proxies'] != null) {
+          final proxies = config['proxies'] as List;
+          print('GlobalState: Config contains ${proxies.length} proxies.');
+      } else {
+          print('GlobalState: Config WARNING - No proxies key found!');
+      }
+    } catch (e, stack) {
+      print('GlobalState: Error patching config: $e\n$stack');
+      globalState.showNotifier('配置生成失败: $e');
       config = {};
     }
     final res = await Isolate.run<String>(() async {
@@ -361,8 +370,10 @@ class GlobalState {
       }
     });
     if (res.isNotEmpty) {
+      print('GlobalState: Failed to write config file: $res');
       throw res;
     }
+    print('GlobalState: Config file written successfully.');
   }
 
   Future<void> genValidateFile(String path, String data) async {
