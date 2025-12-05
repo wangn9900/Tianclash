@@ -6,13 +6,13 @@ import 'package:dio/io.dart';
 class V2BoardService {
   final Dio _dio = Dio();
 
-  V2BoardService({String? userAgent}) {
+  V2BoardService() {
     _dio.options.validateStatus = (status) {
       return status != null && status < 500;
     };
     // 添加默认请求头以支持 Cloudflare CDN
     _dio.options.headers = {
-      'User-Agent': userAgent ?? 'FlClash/1.0 (Dart)',
+      'User-Agent': 'TianQue/1.0 (FlClash; Dart)',
       'Accept': 'application/json, text/plain, */*',
       'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
     };
@@ -105,54 +105,22 @@ class V2BoardService {
     final loginUrl = '$cleanBaseUrl/api/v1/passport/auth/login';
 
     try {
-      print('V2BoardService: Attempting login to $loginUrl');
       final response = await _dio.post(loginUrl, data: {
         'email': email,
         'password': password,
       });
 
-      print('V2BoardService: Login response status: ${response.statusCode}');
-      print('V2BoardService: Login response data type: ${response.data.runtimeType}');
-      
-      if (response.statusCode == 200) {
-        // 更安全的类型转换
-        if (response.data is! Map) {
-          print('V2BoardService: Response data is not a Map: ${response.data}');
-          return null;
-        }
-        
-        final responseData = response.data as Map;
-        print('V2BoardService: Response data keys: ${responseData.keys}');
-        
-        if (responseData['data'] != null) {
-          if (responseData['data'] is! Map) {
-            print('V2BoardService: data field is not a Map: ${responseData['data']}');
-            return null;
-          }
-          
-          final data = responseData['data'] as Map;
-          print('V2BoardService: data keys: ${data.keys}');
-          
-          if (data['auth_data'] != null) {
-            final authData = data['auth_data'].toString();
-            print('V2BoardService: Got auth_data, fetching subscribe URL');
-            final subscribeUrl = await _getSubscribeUrl(cleanBaseUrl, authData);
-            if (subscribeUrl != null) {
-              print('V2BoardService: Login successful, subscribe URL: $subscribeUrl');
-              return (url: subscribeUrl, token: authData);
-            } else {
-              print('V2BoardService: Failed to get subscribe URL');
-            }
-          } else {
-            print('V2BoardService: auth_data not found in response');
-          }
-        } else {
-          print('V2BoardService: data field not found in response');
+      if (response.statusCode == 200 &&
+          response.data['data'] != null &&
+          response.data['data']['auth_data'] != null) {
+        final authData = response.data['data']['auth_data'];
+        final subscribeUrl = await _getSubscribeUrl(cleanBaseUrl, authData);
+        if (subscribeUrl != null) {
+          return (url: subscribeUrl, token: authData as String);
         }
       }
-    } catch (e, stackTrace) {
-      print('V2BoardService: Login error: $e');
-      print('V2BoardService: Stack trace: $stackTrace');
+    } catch (e) {
+      // ignore
     }
     return null;
   }
@@ -161,47 +129,18 @@ class V2BoardService {
     final url = '$baseUrl/api/v1/user/getSubscribe';
 
     try {
-      print('V2BoardService: Fetching subscribe URL from $url');
       final response = await _dio.get(url,
           options: Options(headers: {
             'Authorization': authData,
           }));
 
-      print('V2BoardService: Subscribe URL response status: ${response.statusCode}');
-      print('V2BoardService: Subscribe URL response data type: ${response.data.runtimeType}');
-      
-      if (response.statusCode == 200) {
-        if (response.data is! Map) {
-          print('V2BoardService: Subscribe response data is not a Map: ${response.data}');
-          return null;
-        }
-        
-        final responseData = response.data as Map;
-        print('V2BoardService: Subscribe response keys: ${responseData.keys}');
-        
-        if (responseData['data'] != null) {
-          if (responseData['data'] is! Map) {
-            print('V2BoardService: Subscribe data field is not a Map: ${responseData['data']}');
-            return null;
-          }
-          
-          final data = responseData['data'] as Map;
-          print('V2BoardService: Subscribe data keys: ${data.keys}');
-          
-          if (data['subscribe_url'] != null) {
-            final subscribeUrl = data['subscribe_url'].toString();
-            print('V2BoardService: Got subscribe URL: $subscribeUrl');
-            return subscribeUrl;
-          } else {
-            print('V2BoardService: subscribe_url not found in data');
-          }
-        } else {
-          print('V2BoardService: data field not found in subscribe response');
-        }
+      if (response.statusCode == 200 &&
+          response.data['data'] != null &&
+          response.data['data']['subscribe_url'] != null) {
+        return response.data['data']['subscribe_url'];
       }
-    } catch (e, stackTrace) {
-      print('V2BoardService: Get subscribe URL error: $e');
-      print('V2BoardService: Stack trace: $stackTrace');
+    } catch (e) {
+      // ignore
     }
     return null;
   }
@@ -213,14 +152,11 @@ class V2BoardService {
           options: Options(headers: {
             'Authorization': token,
           }));
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> responseData = Map<String, dynamic>.from(response.data as Map);
-        if (responseData['data'] != null) {
-          return List<dynamic>.from(responseData['data'] as List);
-        }
+      if (response.statusCode == 200 && response.data['data'] != null) {
+        return response.data['data'];
       }
     } catch (e) {
-      print('V2BoardService: Fetch plans error: $e');
+      // ignore
     }
     return null;
   }
@@ -235,10 +171,10 @@ class V2BoardService {
             'Authorization': token,
           }));
       if (response.statusCode == 200) {
-        return Map<String, dynamic>.from(response.data as Map);
+        return response.data;
       }
     } catch (e) {
-      print('V2BoardService: Verify coupon error: $e');
+      // ignore
     }
     return null;
   }
@@ -260,20 +196,14 @@ class V2BoardService {
             'Authorization': token,
           }));
       print('Order submission response: ${response.data}'); // Debug log
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> responseMap = Map<String, dynamic>.from(response.data as Map);
-        if (responseMap['data'] != null) {
-          // V2Board usually returns the trade_no as a string in 'data'
-          // or sometimes { "trade_no": "..." }
-          final responseData = responseMap['data'];
-          if (responseData is String) {
-            return responseData;
-          } else if (responseData is Map) {
-            final dataMap = Map<String, dynamic>.from(responseData as Map);
-            if (dataMap['trade_no'] != null) {
-              return dataMap['trade_no'].toString();
-            }
-          }
+      if (response.statusCode == 200 && response.data['data'] != null) {
+        // V2Board usually returns the trade_no as a string in 'data'
+        // or sometimes { "trade_no": "..." }
+        final responseData = response.data['data'];
+        if (responseData is String) {
+          return responseData;
+        } else if (responseData is Map && responseData['trade_no'] != null) {
+          return responseData['trade_no'].toString();
         }
       }
     } catch (e) {
