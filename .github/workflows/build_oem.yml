@@ -181,8 +181,7 @@ jobs:
           # Flutter 构建输出目录
           $releaseDir = "build\windows\x64\runner\Release"
           
-          # 检查构建是否成�?
-          if (-not (Test-Path $releaseDir)) {
+          # 检查构建是否成�?          if (-not (Test-Path $releaseDir)) {
             Write-Error "Release directory not found: $releaseDir"
             exit 1
           }
@@ -406,8 +405,7 @@ jobs:
           # 复制所有构建文件到 release 目录
           for dir in ./all-artifacts/*/; do
             echo "Processing: $dir"
-            # 复制目录中的所有文�?
-            find "$dir" -type f \( -name "*.apk" -o -name "*.zip" -o -name "*.dmg" -o -name "*.tar.gz" \) -exec cp {} ./release/ \;
+            # 复制目录中的所有文�?            find "$dir" -type f \( -name "*.apk" -o -name "*.zip" -o -name "*.dmg" -o -name "*.tar.gz" \) -exec cp {} ./release/ \;
           done
           
           echo ""
