@@ -380,48 +380,58 @@ Future<void> updateImgBBKey(String apiKey) async {
 Future<void> updateIcons(String iconPath) async {
   print('🔄 更新应用图标配置...');
   
-  // 1. 生成最佳实践的 flutter_launcher_icons.yaml
-  final configFile = File('flutter_launcher_icons.yaml');
-  String content = '''
+  try {
+    // 路径规范化：兼容 Windows 反斜杠
+    final safeIconPath = iconPath.replaceAll(r'\', '/');
+
+    // 1. 生成最佳实践的 flutter_launcher_icons.yaml
+    final configFile = File('flutter_launcher_icons.yaml');
+    String content = '''
 flutter_launcher_icons:
-  image_path: "$iconPath"
+  image_path: "$safeIconPath"
   android: "ic_launcher"
   min_sdk_android: 21
   web:
     generate: true
-    image_path: "$iconPath"
+    image_path: "$safeIconPath"
   windows:
     generate: true
     icon_size: 256
   macos:
     generate: true
-    image_path: "$iconPath"
+    image_path: "$safeIconPath"
   linux:
     generate: true
-    image_path: "$iconPath"
+    image_path: "$safeIconPath"
 ''';
 
-  await configFile.writeAsString(content);
-  print('   ✓ 已生成最佳实践配置文件 (包含 256x256 Windows 图标)');
+    await configFile.writeAsString(content);
+    print('   ✓ 已生成最佳实践配置文件');
 
-  // 2. 运行生成工具
-  print('🎨 生成新图标...');
-  final result = await Process.run(
-    'dart',
-    ['run', 'flutter_launcher_icons'],
-    runInShell: true,
-  );
-  
-  if (result.exitCode == 0) {
-    print('✅ 图标生成成功');
-  } else {
-    print('❌ 图标生成失败: ${result.stderr}');
-    // 如果失败，尝试打印 stdout 看看详细信息
-    print(result.stdout);
+    // 2. 运行生成工具
+    print('🎨 生成新图标...');
+    final result = await Process.run(
+      'dart',
+      ['run', 'flutter_launcher_icons'],
+      runInShell: true,
+    );
+    
+    if (result.exitCode == 0) {
+      print('✅ 图标生成成功');
+    } else {
+      print('⚠️ 图标生成非零退出: ${result.stderr}');
+      print(result.stdout);
+    }
+  } catch (e) {
+    print('⚠️ 图标生成过程发生异常 (不影响构建): $e');
   }
   
   // 更新 Windows 托盘图标
-  await updateTrayIcons(iconPath);
+  try {
+    await updateTrayIcons(iconPath);
+  } catch (e) {
+    print('⚠️ 托盘图标更新失败: $e');
+  }
 }
 
 Future<void> updateTrayIcons(String iconPath) async {
