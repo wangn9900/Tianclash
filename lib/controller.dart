@@ -970,19 +970,27 @@ class AppController {
     }
     toProfiles();
 
-    final profile = await safeRun(
+    var profile = Profile.normal(url: url);
+    if (jwt != null) {
+      profile = profile.copyWith(jwt: jwt);
+    }
+    
+    final updatedProfile = await safeRun(
       () async {
-        var profile = Profile.normal(url: url);
-        if (jwt != null) {
-          profile = profile.copyWith(jwt: jwt);
-        }
         return await profile.update();
       },
       needLoading: true,
       title: '${appLocalizations.add}${appLocalizations.profile}',
     );
-    if (profile != null) {
+    
+    // If update succeeded, use the updated profile
+    // If update failed but we have JWT, still save the profile so user can purchase plans
+    if (updatedProfile != null) {
+      await addProfile(updatedProfile);
+    } else if (jwt != null) {
+      // Save profile with JWT even without subscription data
       await addProfile(profile);
+      context.showNotifier('登录成功，请购买套餐后刷新订阅');
     }
   }
 
