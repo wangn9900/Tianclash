@@ -36,6 +36,14 @@ Future<void> _service(List<String> flags) async {
   app?.tip(appLocalizations.startVpn);
   final version = await system.version;
   await coreController.init(version);
+
+  if (globalState.config.currentProfileId == null ||
+      globalState.config.profiles.isEmpty) {
+    print('Service: No profile found, stopping.');
+    await globalState.handleStop();
+    return;
+  }
+
   final clashConfig = globalState.config.patchClashConfig.copyWith.tun(
     enable: false,
   );
