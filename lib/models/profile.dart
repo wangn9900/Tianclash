@@ -213,17 +213,9 @@ extension ProfileExtension on Profile {
       }
       print('Profile.saveFile: Validation passed');
       
-      // Additional check for proxies
-      try {
-        final content = convert.utf8.decode(bytes, allowMalformed: true);
-        if (!content.contains('proxies:')) {
-           print('Profile.saveFile: No proxies found in config');
-           throw '订阅内容为空，请先购买套餐';
-        }
-      } catch (e) {
-        print('Profile.saveFile: Content check failed: $e');
-        rethrow;
-      }
+      // Reverting to standard FlClash behavior:
+      // Removed custom 'proxies:' check to allow Core to determine validity.
+
 
       final file = await getFile();
       print('Profile.saveFile: Saving to: ${file.path}');

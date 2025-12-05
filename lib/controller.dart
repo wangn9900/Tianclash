@@ -175,7 +175,7 @@ class AppController {
         
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('连接失败：无法加载节点配置')),
+            const SnackBar(content: Text('连接失败，请检查网络或节点配置')),
           );
         }
       }
