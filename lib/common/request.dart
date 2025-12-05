@@ -33,7 +33,11 @@ class Request {
   Future<Response> getFileResponseForUrl(String url) async {
     final response = await _clashDio.get(
       url,
-      options: Options(responseType: ResponseType.bytes),
+      options: Options(
+        responseType: ResponseType.bytes,
+        sendTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 10),
+      ),
     );
     return response;
   }
@@ -41,7 +45,11 @@ class Request {
   Future<Response> getTextResponseForUrl(String url) async {
     final response = await _clashDio.get(
       url,
-      options: Options(responseType: ResponseType.plain),
+      options: Options(
+        responseType: ResponseType.plain,
+        sendTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 10),
+      ),
     );
     return response;
   }

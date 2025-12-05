@@ -99,37 +99,82 @@ class AppController {
   Future<void> updateStatus(bool isStart) async {
     if (isStart) {
       _ref.read(coreStatusProvider.notifier).value = CoreStatus.connecting;
-      await globalState.appController.tryStartCore();
-      _ref.read(coreStatusProvider.notifier).value = CoreStatus.connected;
-      await globalState.handleStart([updateRunTime, updateTraffic]);
-      if (system.isAndroid) {
-        await Future.delayed(const Duration(milliseconds: 1500));
-        coreController.closeConnections();
-        await Future.delayed(const Duration(milliseconds: 200));
-        final groups = getCurrentGroups();
-        for (final group in groups) {
-          if (group.type == GroupType.Selector && group.now != null) {
-            await changeProxy(
-              groupName: group.name,
-              proxyName: group.now!,
-            );
+      
+      bool startSuccess = false;
+      try {
+        await globalState.appController.tryStartCore();
+        
+        // Double check: If we are connected, we should be able to get groups
+        // Wait briefly for core to stabilize
+        if (system.isAndroid) await Future.delayed(const Duration(milliseconds: 500));
+        
+        // Verify core is responding
+        try {
+             final groups = await coreController.getProxiesGroups(
+                sortType: ProxiesSortType.none,
+                delayMap: {},
+                selectedMap: {},
+                defaultTestUrl: _ref.read(appSettingProvider).testUrl,
+             ).timeout(const Duration(seconds: 2));
+             
+             if (groups.isNotEmpty) {
+               startSuccess = true;
+             } else {
+               print('AppController: Core started but returned no groups.');
+               // Even if no groups, it might be running but just have empty config.
+               // But usually this means something is wrong.
+               // check if running?
+               startSuccess = true; // Tentatively accept if no exception
+             }
+        } catch (e) {
+             print('AppController: Core verification failed after start: $e');
+             startSuccess = false;
+        }
+      } catch (e) {
+        print('AppController: tryStartCore failed: $e');
+        startSuccess = false;
+      }
+
+      if (startSuccess) {
+        _ref.read(coreStatusProvider.notifier).value = CoreStatus.connected;
+        await globalState.handleStart([updateRunTime, updateTraffic]);
+        if (system.isAndroid) {
+          await Future.delayed(const Duration(milliseconds: 1500));
+          coreController.closeConnections();
+          await Future.delayed(const Duration(milliseconds: 200));
+          final groups = getCurrentGroups();
+          for (final group in groups) {
+            if (group.type == GroupType.Selector && group.now != null) {
+              await changeProxy(
+                groupName: group.name,
+                proxyName: group.now!,
+              );
+            }
           }
         }
+        final currentLastModified = await _ref
+            .read(currentProfileProvider)
+            ?.profileLastModified;
+        if (currentLastModified == null) {
+          addCheckIpNumDebounce();
+          return;
+        }
+        if (lastProfileModified != null &&
+            currentLastModified <= lastProfileModified!) {
+          addCheckIpNumDebounce();
+          return;
+        }
+        applyProfileDebounce();
+        _ref.read(coreStatusProvider.notifier).value = CoreStatus.connected;
+      } else {
+        // Revert to disconnected if start failed
+        print('AppController: Start failed or validation failed. Reverting to Disconnected.');
+        await globalState.handleStop();
+        coreController.resetTraffic();
+        _ref.read(trafficsProvider.notifier).clear();
+        _ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
+        // Optional: Show error toast?
       }
-      final currentLastModified = await _ref
-          .read(currentProfileProvider)
-          ?.profileLastModified;
-      if (currentLastModified == null) {
-        addCheckIpNumDebounce();
-        return;
-      }
-      if (lastProfileModified != null &&
-          currentLastModified <= lastProfileModified!) {
-        addCheckIpNumDebounce();
-        return;
-      }
-      applyProfileDebounce();
-      _ref.read(coreStatusProvider.notifier).value = CoreStatus.connected;
     } else {
       await globalState.handleStop();
       coreController.resetTraffic();
@@ -701,6 +746,13 @@ class AppController {
              await updateStatus(true);
            }
         }
+      } else {
+         // Verification failed
+         print('AppController: Service claimed running but Core verification failed. Forcing Disconnected.');
+         _ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
+         if (isServiceRunning) {
+            await globalState.handleStop();
+         }
       }
     } else if (autoRun) {
       print('AppController: AutoRun is enabled, starting...');
@@ -749,9 +801,17 @@ class AppController {
       await deleteProfile(profile.id);
     }
     
-    // 强制关闭内核
+    // 强制更新UI状态为未连接，避免UI锁死
+    _ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
+    
+    // 强制关闭内核，带超时机制
     try {
-      await coreController.shutdown();
+      await coreController.shutdown().timeout(
+        const Duration(seconds: 2),
+        onTimeout: () {
+          commonPrint.log('Shutdown timed out during logout', logLevel: LogLevel.warning);
+        },
+      );
     } catch (e) {
       commonPrint.log('Failed to shutdown core: $e', logLevel: LogLevel.warning);
     }
@@ -773,7 +833,7 @@ class AppController {
 
   Future<void> stopSystemProxy() async {
     // First update status to trigger UI change immediately
-    await updateStatus(false);
+    _ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
     
     // Then stop proxy with timeout to avoid hanging
     try {
