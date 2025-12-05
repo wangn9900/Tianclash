@@ -110,17 +110,24 @@ class V2BoardService {
         'password': password,
       });
 
-      if (response.statusCode == 200 &&
-          response.data['data'] != null &&
-          response.data['data']['auth_data'] != null) {
-        final authData = response.data['data']['auth_data'];
-        final subscribeUrl = await _getSubscribeUrl(cleanBaseUrl, authData);
-        if (subscribeUrl != null) {
-          return (url: subscribeUrl, token: authData as String);
+      if (response.statusCode == 200) {
+        // 显式转换为 Map<String, dynamic>
+        final Map<String, dynamic> responseData = Map<String, dynamic>.from(response.data as Map);
+        
+        if (responseData['data'] != null) {
+          final Map<String, dynamic> data = Map<String, dynamic>.from(responseData['data'] as Map);
+          
+          if (data['auth_data'] != null) {
+            final authData = data['auth_data'] as String;
+            final subscribeUrl = await _getSubscribeUrl(cleanBaseUrl, authData);
+            if (subscribeUrl != null) {
+              return (url: subscribeUrl, token: authData);
+            }
+          }
         }
       }
     } catch (e) {
-      // ignore
+      print('V2BoardService: Login error: $e');
     }
     return null;
   }
@@ -134,13 +141,19 @@ class V2BoardService {
             'Authorization': authData,
           }));
 
-      if (response.statusCode == 200 &&
-          response.data['data'] != null &&
-          response.data['data']['subscribe_url'] != null) {
-        return response.data['data']['subscribe_url'];
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseData = Map<String, dynamic>.from(response.data as Map);
+        
+        if (responseData['data'] != null) {
+          final Map<String, dynamic> data = Map<String, dynamic>.from(responseData['data'] as Map);
+          
+          if (data['subscribe_url'] != null) {
+            return data['subscribe_url'] as String;
+          }
+        }
       }
     } catch (e) {
-      // ignore
+      print('V2BoardService: Get subscribe URL error: $e');
     }
     return null;
   }
@@ -152,11 +165,14 @@ class V2BoardService {
           options: Options(headers: {
             'Authorization': token,
           }));
-      if (response.statusCode == 200 && response.data['data'] != null) {
-        return response.data['data'];
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseData = Map<String, dynamic>.from(response.data as Map);
+        if (responseData['data'] != null) {
+          return List<dynamic>.from(responseData['data'] as List);
+        }
       }
     } catch (e) {
-      // ignore
+      print('V2BoardService: Fetch plans error: $e');
     }
     return null;
   }
@@ -171,10 +187,10 @@ class V2BoardService {
             'Authorization': token,
           }));
       if (response.statusCode == 200) {
-        return response.data;
+        return Map<String, dynamic>.from(response.data as Map);
       }
     } catch (e) {
-      // ignore
+      print('V2BoardService: Verify coupon error: $e');
     }
     return null;
   }
@@ -196,14 +212,20 @@ class V2BoardService {
             'Authorization': token,
           }));
       print('Order submission response: ${response.data}'); // Debug log
-      if (response.statusCode == 200 && response.data['data'] != null) {
-        // V2Board usually returns the trade_no as a string in 'data'
-        // or sometimes { "trade_no": "..." }
-        final responseData = response.data['data'];
-        if (responseData is String) {
-          return responseData;
-        } else if (responseData is Map && responseData['trade_no'] != null) {
-          return responseData['trade_no'].toString();
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseMap = Map<String, dynamic>.from(response.data as Map);
+        if (responseMap['data'] != null) {
+          // V2Board usually returns the trade_no as a string in 'data'
+          // or sometimes { "trade_no": "..." }
+          final responseData = responseMap['data'];
+          if (responseData is String) {
+            return responseData;
+          } else if (responseData is Map) {
+            final dataMap = Map<String, dynamic>.from(responseData as Map);
+            if (dataMap['trade_no'] != null) {
+              return dataMap['trade_no'].toString();
+            }
+          }
         }
       }
     } catch (e) {
