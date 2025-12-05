@@ -294,10 +294,11 @@ class _V2BoardLoginPageState extends State<V2BoardLoginPage> {
     if (result != null && mounted) {
       await _saveCredentials();
       await globalState.appController
-          .addProfileFormURL(result.url, jwt: result.token);
+          .addProfileFormURL(result.url, jwt: result.token, skipNavigation: true);
       if (mounted) {
-        Navigator.of(context).pushReplacement(
+        Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const HomePage()),
+          (route) => false,
         );
       }
     } else if (mounted) {

@@ -964,11 +964,13 @@ class AppController {
     return;
   }
 
-  Future<void> addProfileFormURL(String url, {String? jwt}) async {
-    if (globalState.navigatorKey.currentState?.canPop() ?? false) {
-      globalState.navigatorKey.currentState?.popUntil((route) => route.isFirst);
+  Future<void> addProfileFormURL(String url, {String? jwt, bool skipNavigation = false}) async {
+    if (!skipNavigation) {
+      if (globalState.navigatorKey.currentState?.canPop() ?? false) {
+        globalState.navigatorKey.currentState?.popUntil((route) => route.isFirst);
+      }
+      toProfiles();
     }
-    toProfiles();
 
     var profile = Profile.normal(url: url);
     if (jwt != null) {
@@ -990,7 +992,9 @@ class AppController {
     } else if (jwt != null) {
       // Save profile with JWT even without subscription data
       await addProfile(profile);
-      context.showNotifier('登录成功，请购买套餐后刷新订阅');
+      if (!skipNavigation) {
+        context.showNotifier('登录成功，请购买套餐后刷新订阅');
+      }
     }
   }
 
