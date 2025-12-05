@@ -109,10 +109,9 @@ object State {
 
     suspend fun handleStopServiceAwait() {
         runLock.withLock {
-            if (runStateFlow.value != RunState.START) {
-                return
-            }
+            // Ensure we update state to PENDING to prevent re-entry/race conditions
             runStateFlow.tryEmit(RunState.PENDING)
+            // Always attempt to stop the service, regardless of previous state, to handle zombie states
             runTime = Service.stopService()
             runStateFlow.tryEmit(RunState.STOP)
         }
