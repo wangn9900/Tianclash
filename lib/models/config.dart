@@ -125,7 +125,7 @@ extension AccessControlExt on AccessControl {
 abstract class WindowProps with _$WindowProps {
   const factory WindowProps({
     @Default(750) double width,
-    @Default(600) double height,
+    @Default(720) double height,
     double? top,
     double? left,
   }) = _WindowProps;
