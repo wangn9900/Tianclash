@@ -1,3 +1,4 @@
+import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/common/proxy.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/state.dart';
@@ -18,8 +19,10 @@ class _ProxyManagerState extends ConsumerState<ProxyManager> {
     final isStart = proxyState.isStart;
     final systemProxy = proxyState.systemProxy;
     final port = proxyState.port;
-    commonPrint.log('ProxyManager: _updateProxy called. isStart: $isStart, systemProxy: $systemProxy, port: $port');
-    
+    commonPrint.log(
+      'ProxyManager: _updateProxy called. isStart: $isStart, systemProxy: $systemProxy, port: $port',
+    );
+
     if (isStart && systemProxy) {
       commonPrint.log('ProxyManager: >>> Invoking native startProxy');
       final res = await proxy?.startProxy(port, proxyState.bassDomain);
@@ -34,15 +37,11 @@ class _ProxyManagerState extends ConsumerState<ProxyManager> {
   @override
   void initState() {
     super.initState();
-    ref.listenManual(
-      proxyStateProvider,
-      (prev, next) {
-        if (prev != next) {
-          _updateProxy(next);
-        }
-      },
-      fireImmediately: true,
-    );
+    ref.listenManual(proxyStateProvider, (prev, next) {
+      if (prev != next) {
+        _updateProxy(next);
+      }
+    }, fireImmediately: true);
   }
 
   @override

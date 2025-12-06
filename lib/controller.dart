@@ -99,33 +99,38 @@ class AppController {
   Future<void> updateStatus(bool isStart) async {
     if (isStart) {
       _ref.read(coreStatusProvider.notifier).value = CoreStatus.connecting;
-      
+
       bool startSuccess = false;
       try {
         await globalState.appController.tryStartCore();
-        
+
         // Double check: If we are connected, we should be able to get groups
         // Wait briefly for core to stabilize
-        if (system.isAndroid) await Future.delayed(const Duration(milliseconds: 500));
-        
+        if (system.isAndroid)
+          await Future.delayed(const Duration(milliseconds: 500));
+
         // Verify core is responding
         try {
-             final groups = await coreController.getProxiesGroups(
+          final groups = await coreController
+              .getProxiesGroups(
                 sortType: ProxiesSortType.none,
                 delayMap: {},
                 selectedMap: {},
                 defaultTestUrl: _ref.read(appSettingProvider).testUrl,
-             ).timeout(const Duration(seconds: 2));
-             
-             if (groups.isNotEmpty) {
-               startSuccess = true;
-             } else {
-               print('AppController: Core started but returned no groups. Treating as failure.');
-               startSuccess = false;
-             }
+              )
+              .timeout(const Duration(seconds: 2));
+
+          if (groups.isNotEmpty) {
+            startSuccess = true;
+          } else {
+            print(
+              'AppController: Core started but returned no groups. Treating as failure.',
+            );
+            startSuccess = false;
+          }
         } catch (e) {
-             print('AppController: Core verification failed after start: $e');
-             startSuccess = false;
+          print('AppController: Core verification failed after start: $e');
+          startSuccess = false;
         }
       } catch (e) {
         print('AppController: tryStartCore failed: $e');
@@ -142,10 +147,7 @@ class AppController {
           final groups = getCurrentGroups();
           for (final group in groups) {
             if (group.type == GroupType.Selector && group.now != null) {
-              await changeProxy(
-                groupName: group.name,
-                proxyName: group.now!,
-              );
+              await changeProxy(groupName: group.name, proxyName: group.now!);
             }
           }
         }
@@ -165,18 +167,20 @@ class AppController {
         _ref.read(coreStatusProvider.notifier).value = CoreStatus.connected;
       } else {
         // Revert to disconnected if start failed
-        print('AppController: Start failed or validation failed. Reverting to Disconnected.');
+        print(
+          'AppController: Start failed or validation failed. Reverting to Disconnected.',
+        );
         if (globalState.isStart) {
-           await globalState.handleStop();
+          await globalState.handleStop();
         }
         coreController.resetTraffic();
         _ref.read(trafficsProvider.notifier).clear();
         _ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
-        
+
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('连接失败，请检查网络或节点配置')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('连接失败，请检查网络或节点配置')));
         }
       }
     } else {
@@ -188,14 +192,50 @@ class AppController {
           // 等待服务完全停止
           await Future.delayed(const Duration(milliseconds: 500));
         } catch (e) {
-          print('AppController: forceStopVpn failed: $e, fallback to service.stop()');
+          print(
+            'AppController: forceStopVpn failed: $e, fallback to service.stop()',
+          );
           await globalState.handleStop();
         }
       } else {
-        // 其他平台走原逻辑
+        // Windows/macOS/Linux:
+        // 1. 关闭 TUN 虚拟网卡
+        // 2. 关闭系统代理
+        // 3. 更新配置让核心应用
+        print('AppController: Stopping on desktop...');
+
+        // 先禁用 TUN
+        final currentTunEnabled = _ref.read(
+          patchClashConfigProvider.select((state) => state.tun.enable),
+        );
+        if (currentTunEnabled) {
+          print('AppController: Disabling TUN...');
+          _ref
+              .read(patchClashConfigProvider.notifier)
+              .updateState((state) => state.copyWith.tun(enable: false));
+          // 立即发送配置更新到核心
+          try {
+            final updateParams = _ref.read(updateParamsProvider);
+            await coreController.updateConfig(
+              updateParams.copyWith.tun(enable: false),
+            );
+            print('AppController: TUN disabled');
+          } catch (e) {
+            print('AppController: Failed to disable TUN: $e');
+          }
+        }
+
+        // 关闭系统代理
+        try {
+          await proxy?.stopProxy();
+          print('AppController: System proxy stopped');
+        } catch (e) {
+          print('AppController: stopProxy error: $e');
+        }
+
         await globalState.handleStop();
       }
-      
+
       coreController.resetTraffic();
       _ref.read(trafficsProvider.notifier).clear();
       _ref.read(totalTrafficProvider.notifier).value = Traffic();
@@ -228,23 +268,27 @@ class AppController {
 
   Future<void> addProfile(Profile profile) async {
     _ref.read(profilesProvider.notifier).setProfile(profile);
-    
+
     // Sync globalState.config with the latest profiles
     final currentProfiles = _ref.read(profilesProvider);
     globalState.config = globalState.config.copyWith(profiles: currentProfiles);
-    
+
     await savePreferences();
     if (_ref.read(currentProfileIdProvider) != null) return;
     await tryStartCore();
     _ref.read(currentProfileIdProvider.notifier).value = profile.id;
-    
+
     // Sync globalState.config with the latest currentProfileId
-    globalState.config = globalState.config.copyWith(currentProfileId: profile.id);
-    
+    globalState.config = globalState.config.copyWith(
+      currentProfileId: profile.id,
+    );
+
     await savePreferences();
-    
+
     // 强制更新配置，确保新账号的订阅能正确下发
-    print('AppController: addProfile - Syncing config and updating Clash config...');
+    print(
+      'AppController: addProfile - Syncing config and updating Clash config...',
+    );
     await updateClashConfig();
   }
 
@@ -683,17 +727,19 @@ class AppController {
     if (system.isAndroid) {
       await globalState.updateStartTime();
     }
-    
+
     // Check if VPN is actually running (system level)
     // If startTime is not null, it means the service is running
     final isServiceRunning = globalState.isStart;
     final autoRun = _ref.read(appSettingProvider).autoRun;
-    
+
     // 检查是否有有效配置
     // 如果没有配置，不应该显示已连接状态
     final hasValidProfile = _ref.read(currentProfileProvider) != null;
-    
-    print('AppController: _initStatus - isServiceRunning: $isServiceRunning, autoRun: $autoRun, hasValidProfile: $hasValidProfile');
+
+    print(
+      'AppController: _initStatus - isServiceRunning: $isServiceRunning, autoRun: $autoRun, hasValidProfile: $hasValidProfile',
+    );
 
     // 如果没有有效配置，强制设置为断开状态
     if (!hasValidProfile) {
@@ -709,7 +755,7 @@ class AppController {
       // CRITICAL: Verify the core is actually running, not just the service
       // Check if we can get a valid response from the core
       print('AppController: Service reports running, verifying core...');
-      
+
       bool coreIsActuallyRunning = false;
       try {
         // Try to get proxies with a short timeout
@@ -721,18 +767,22 @@ class AppController {
         final selectedMap = _ref.read(
           currentProfileProvider.select((state) => state?.selectedMap ?? {}),
         );
-        
-        final testProxies = await coreController.getProxiesGroups(
-          selectedMap: selectedMap,
-          sortType: sortType,
-          delayMap: delayMap,
-          defaultTestUrl: testUrl,
-        ).timeout(
-          const Duration(seconds: 2),
-          onTimeout: () => throw TimeoutException('Core not responding'),
-        );
+
+        final testProxies = await coreController
+            .getProxiesGroups(
+              selectedMap: selectedMap,
+              sortType: sortType,
+              delayMap: delayMap,
+              defaultTestUrl: testUrl,
+            )
+            .timeout(
+              const Duration(seconds: 2),
+              onTimeout: () => throw TimeoutException('Core not responding'),
+            );
         coreIsActuallyRunning = testProxies.isNotEmpty;
-        print('AppController: Core verification - running: $coreIsActuallyRunning');
+        print(
+          'AppController: Core verification - running: $coreIsActuallyRunning',
+        );
       } catch (e) {
         print('AppController: Core verification failed: $e');
         coreIsActuallyRunning = false;
@@ -742,14 +792,17 @@ class AppController {
         // Core is truly running, sync UI state
         print('AppController: Core is running, syncing state to connected...');
         _ref.read(coreStatusProvider.notifier).value = CoreStatus.connected;
-        
+
         // Ensure we have a current profile selected
-        if (_ref.read(currentProfileIdProvider) == null && _ref.read(profilesProvider).isNotEmpty) {
-           final firstProfileId = _ref.read(profilesProvider).first.id;
-           print('AppController: No current profile, selecting first: $firstProfileId');
-           _ref.read(currentProfileIdProvider.notifier).value = firstProfileId;
+        if (_ref.read(currentProfileIdProvider) == null &&
+            _ref.read(profilesProvider).isNotEmpty) {
+          final firstProfileId = _ref.read(profilesProvider).first.id;
+          print(
+            'AppController: No current profile, selecting first: $firstProfileId',
+          );
+          _ref.read(currentProfileIdProvider.notifier).value = firstProfileId;
         }
-        
+
         // Update groups
         try {
           print('AppController: Updating groups with timeout...');
@@ -757,31 +810,39 @@ class AppController {
         } catch (e) {
           print('AppController: Update groups timed out or failed: $e');
         }
-        
-        // If we are "connected" but have no groups, something is wrong. 
+
+        // If we are "connected" but have no groups, something is wrong.
         // Try to re-apply the profile.
         if (getCurrentGroups().isEmpty) {
-           print('AppController: Connected but no groups, re-applying profile...');
-           try {
-              await applyProfile(silence: true).timeout(const Duration(seconds: 5));
-           } catch (e) {
-              print('AppController: Apply profile timed out: $e');
-           }
-           
-           if (getCurrentGroups().isEmpty) {
-             print('AppController: Still no groups after re-apply, disconnecting...');
-             await updateStatus(false);
-           } else {
-             await updateStatus(true);
-           }
+          print(
+            'AppController: Connected but no groups, re-applying profile...',
+          );
+          try {
+            await applyProfile(
+              silence: true,
+            ).timeout(const Duration(seconds: 5));
+          } catch (e) {
+            print('AppController: Apply profile timed out: $e');
+          }
+
+          if (getCurrentGroups().isEmpty) {
+            print(
+              'AppController: Still no groups after re-apply, disconnecting...',
+            );
+            await updateStatus(false);
+          } else {
+            await updateStatus(true);
+          }
         }
       } else {
-         // Verification failed
-         print('AppController: Service claimed running but Core verification failed. Forcing Disconnected.');
-         _ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
-         if (isServiceRunning) {
-            await globalState.handleStop();
-         }
+        // Verification failed
+        print(
+          'AppController: Service claimed running but Core verification failed. Forcing Disconnected.',
+        );
+        _ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
+        if (isServiceRunning) {
+          await globalState.handleStop();
+        }
       }
     } else if (autoRun) {
       print('AppController: AutoRun is enabled, starting...');
@@ -829,25 +890,31 @@ class AppController {
     for (final profile in profiles) {
       await deleteProfile(profile.id);
     }
-    
+
     // 强制更新UI状态为未连接，避免UI锁死
     _ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
-    
+
     // 强制关闭内核，带超时机制
     try {
       await coreController.shutdown().timeout(
         const Duration(seconds: 2),
         onTimeout: () {
-          commonPrint.log('Shutdown timed out during logout', logLevel: LogLevel.warning);
+          commonPrint.log(
+            'Shutdown timed out during logout',
+            logLevel: LogLevel.warning,
+          );
         },
       );
     } catch (e) {
-      commonPrint.log('Failed to shutdown core: $e', logLevel: LogLevel.warning);
+      commonPrint.log(
+        'Failed to shutdown core: $e',
+        logLevel: LogLevel.warning,
+      );
     }
-    
+
     // Ensure the state is updated
     await Future.delayed(const Duration(milliseconds: 100));
-    
+
     if (_ref.read(profilesProvider).isEmpty) {
       if (context != null && context.mounted) {
         Navigator.of(context).pushAndRemoveUntil(
@@ -861,21 +928,9 @@ class AppController {
   }
 
   Future<void> stopSystemProxy() async {
-    // First update status to trigger UI change immediately
-    _ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
-    
-    // Then stop proxy with timeout to avoid hanging
-    try {
-      await proxy?.stopProxy().timeout(
-        const Duration(seconds: 2),
-        onTimeout: () {
-          print('AppController: stopProxy timed out, forcing stop');
-          return;
-        },
-      );
-    } catch (e) {
-      print('AppController: Error stopping proxy: $e');
-    }
+    // 使用 updateStatus(false) 执行完整的停止逻辑
+    // 包括：禁用 TUN、关闭系统代理、停止核心监听等
+    await updateStatus(false);
   }
 
   Future<void> startSystemProxy() async {
@@ -979,10 +1034,16 @@ class AppController {
     return;
   }
 
-  Future<void> addProfileFormURL(String url, {String? jwt, bool skipNavigation = false}) async {
+  Future<void> addProfileFormURL(
+    String url, {
+    String? jwt,
+    bool skipNavigation = false,
+  }) async {
     if (!skipNavigation) {
       if (globalState.navigatorKey.currentState?.canPop() ?? false) {
-        globalState.navigatorKey.currentState?.popUntil((route) => route.isFirst);
+        globalState.navigatorKey.currentState?.popUntil(
+          (route) => route.isFirst,
+        );
       }
       toProfiles();
     }
@@ -991,7 +1052,7 @@ class AppController {
     if (jwt != null) {
       profile = profile.copyWith(jwt: jwt);
     }
-    
+
     final updatedProfile = await safeRun(
       () async {
         return await profile.update();
@@ -999,7 +1060,7 @@ class AppController {
       needLoading: true,
       title: '${appLocalizations.add}${appLocalizations.profile}',
     );
-    
+
     // If update succeeded, use the updated profile
     // If update failed but we have JWT, still save the profile so user can purchase plans
     if (updatedProfile != null) {
