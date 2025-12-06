@@ -24,30 +24,58 @@ class OutboundMode extends StatelessWidget {
           patchClashConfigProvider.select((state) => state.mode),
         );
 
-        return SegmentedButton<Mode>(
-          segments: const [
-            ButtonSegment<Mode>(
-              value: Mode.rule,
-              label: Text('智能'),
-              icon: Icon(Icons.auto_fix_high),
+        return Row(
+          children: [
+            Expanded(
+              child: SegmentedButton<Mode>(
+                segments: const [
+                  ButtonSegment<Mode>(
+                    value: Mode.rule,
+                    label: Text('智能'),
+                    icon: Icon(Icons.auto_fix_high),
+                  ),
+                  ButtonSegment<Mode>(
+                    value: Mode.global,
+                    label: Text('全局'),
+                    icon: Icon(Icons.public),
+                  ),
+                ],
+                selected: {mode == Mode.direct ? Mode.rule : mode},
+                onSelectionChanged: (Set<Mode> newSelection) {
+                  globalState.appController.changeMode(newSelection.first);
+                },
+                showSelectedIcon: false,
+                style: ButtonStyle(
+                  visualDensity: VisualDensity.comfortable,
+                  padding: WidgetStateProperty.all(
+                    const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
             ),
-            ButtonSegment<Mode>(
-              value: Mode.global,
-              label: Text('全局'),
-              icon: Icon(Icons.public),
-            ),
+            if (system.isWindows) ...[
+              const SizedBox(width: 16),
+              const Text(
+                "开启虚拟网卡",
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(width: 8),
+              Transform.scale(
+                scale: 0.8,
+                child: Switch(
+                  value: ref.watch(
+                    patchClashConfigProvider
+                        .select((state) => state.tun.enable),
+                  ),
+                  onChanged: (value) {
+                    ref.read(patchClashConfigProvider.notifier).updateState(
+                          (state) => state.copyWith.tun(enable: value),
+                        );
+                  },
+                ),
+              ),
+            ],
           ],
-          selected: {mode == Mode.direct ? Mode.rule : mode},
-          onSelectionChanged: (Set<Mode> newSelection) {
-            globalState.appController.changeMode(newSelection.first);
-          },
-          showSelectedIcon: false,
-          style: ButtonStyle(
-            visualDensity: VisualDensity.comfortable,
-            padding: WidgetStateProperty.all(
-              const EdgeInsets.symmetric(vertical: 12),
-            ),
-          ),
         );
       },
     );
