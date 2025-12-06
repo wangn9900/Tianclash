@@ -418,7 +418,7 @@ class GlobalState {
       currentProfileName: config.currentProfile?.label ?? '',
       onlyStatisticsProxy: config.appSetting.onlyStatisticsProxy,
       stopText: appLocalizations.stop,
-      crashlytics: false, // Force disable to prevent crash in OEM build without Google Services
+      crashlytics: true,
     );
   }
 
