@@ -77,9 +77,8 @@ class CommonCard extends StatelessWidget {
     super.key,
     bool? isSelected,
     this.type = CommonCardType.plain,
-    this.onPressed,
     this.selectWidget,
-    this.radius = 14,
+    this.radius = 20, // 加大圆角，更圆润
     required this.child,
     this.padding,
     this.enterAnimated = false,
@@ -113,9 +112,8 @@ class CommonCard extends StatelessWidget {
       return BorderSide(color: hoverColor);
     }
     return BorderSide(
-      color: isSelected
-          ? colorScheme.primary
-          : const Color(0xFF87CEEB).withOpacity(0.6), // 淡蓝色边框
+      // 选中时显示主题色，未选中时显示极淡的灰色描边，增加卡片轮廓感
+      color: isSelected ? colorScheme.primary : Colors.grey.withOpacity(0.1),
     );
   }
 
