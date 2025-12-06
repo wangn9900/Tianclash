@@ -180,7 +180,22 @@ class AppController {
         }
       }
     } else {
-      await globalState.handleStop();
+      // Android 使用可靠的原生停止方法,复用状态栏逻辑
+      if (system.isAndroid) {
+        print('AppController: Using forceStopVpn for reliable stop on Android');
+        try {
+          await app?.forceStopVpn();
+          // 等待服务完全停止
+          await Future.delayed(const Duration(milliseconds: 500));
+        } catch (e) {
+          print('AppController: forceStopVpn failed: $e, fallback to service.stop()');
+          await globalState.handleStop();
+        }
+      } else {
+        // 其他平台走原逻辑
+        await globalState.handleStop();
+      }
+      
       coreController.resetTraffic();
       _ref.read(trafficsProvider.notifier).clear();
       _ref.read(totalTrafficProvider.notifier).value = Traffic();

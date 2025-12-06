@@ -18,10 +18,16 @@ class _ProxyManagerState extends ConsumerState<ProxyManager> {
     final isStart = proxyState.isStart;
     final systemProxy = proxyState.systemProxy;
     final port = proxyState.port;
+    commonPrint.log('ProxyManager: _updateProxy called. isStart: $isStart, systemProxy: $systemProxy, port: $port');
+    
     if (isStart && systemProxy) {
-      proxy?.startProxy(port, proxyState.bassDomain);
+      commonPrint.log('ProxyManager: >>> Invoking native startProxy');
+      final res = await proxy?.startProxy(port, proxyState.bassDomain);
+      commonPrint.log('ProxyManager: <<< Native startProxy result: $res');
     } else {
-      proxy?.stopProxy();
+      commonPrint.log('ProxyManager: >>> Invoking native stopProxy');
+      final res = await proxy?.stopProxy();
+      commonPrint.log('ProxyManager: <<< Native stopProxy result: $res');
     }
   }
 

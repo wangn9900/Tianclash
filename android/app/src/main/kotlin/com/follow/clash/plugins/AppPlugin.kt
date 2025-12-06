@@ -157,6 +157,11 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
                 result.success(true)
             }
 
+            "forceStopVpn" -> {
+                forceStopVpn()
+                result.success(true)
+            }
+
             else -> {
                 result.notImplemented()
             }
@@ -194,6 +199,15 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
 
     private fun tip(message: String?) {
         Toast.makeText(GlobalState.application, message, Toast.LENGTH_LONG).show()
+    }
+
+    /**
+     * 强制停止 VPN - 复用状态栏"暂停"按钮的可靠逻辑
+     * 通过发送 QuickAction.STOP Intent 绕过 Dart-Kotlin MethodChannel 通信问题
+     */
+    private fun forceStopVpn() {
+        val stopIntent = QuickAction.STOP.quickIntent
+        GlobalState.application.startActivity(stopIntent)
     }
 
     @Suppress("DEPRECATION")

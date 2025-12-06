@@ -101,6 +101,12 @@ class App {
       'value': value,
     });
   }
+
+  /// 强制停止 VPN - 使用状态栏"暂停"按钮的可靠逻辑
+  /// 解决 UI 停止按钮无法真正关闭 VPN 的问题
+  Future<bool?> forceStopVpn() async {
+    return await methodChannel.invokeMethod<bool>('forceStopVpn');
+  }
 }
 
 final app = system.isAndroid ? App() : null;

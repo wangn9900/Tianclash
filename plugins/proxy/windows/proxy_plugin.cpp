@@ -22,6 +22,14 @@
 #include <memory>
 #include <sstream>
 
+std::wstring Utf8ToWide(const std::string& str) {
+  if (str.empty()) return std::wstring();
+  int size_needed = MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), NULL, 0);
+  std::wstring wstrTo(size_needed, 0);
+  MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), &wstrTo[0], size_needed);
+  return wstrTo;
+}
+
 void startProxy(const int port, const flutter::EncodableList& bypassDomain)
 {
   INTERNET_PER_CONN_OPTION_LIST list;
@@ -30,40 +38,45 @@ void startProxy(const int port, const flutter::EncodableList& bypassDomain)
   list.pszConnection = nullptr;
 
   auto url = "127.0.0.1:" + std::to_string(port);
-  auto wUrl = std::wstring(url.begin(), url.end());
-  auto fullAddr = new WCHAR[url.length() + 1];
-  wcscpy_s(fullAddr, url.length() + 1, wUrl.c_str());
+  auto wUrl = Utf8ToWide(url);
 
-  std::wstring wBypassList;
-
+  std::string bypassList;
   for (const auto& domain : bypassDomain) {
-    if (!wBypassList.empty()) {
-       wBypassList += L";";
+    if (!bypassList.empty()) {
+       bypassList += ";";
     }
-    wBypassList += std::wstring(std::get<std::string>(domain).begin(), std::get<std::string>(domain).end());
+    if (std::holds_alternative<std::string>(domain)) {
+      bypassList += std::get<std::string>(domain);
+    }
   }
-
-  auto bypassAddr = new WCHAR[wBypassList.length() + 1];
-  wcscpy_s(bypassAddr, wBypassList.length() + 1, wBypassList.c_str());
+  bypassList += ";<local>";
+  auto wBypassList = Utf8ToWide(bypassList);
 
   list.dwOptionCount = 3;
   list.pOptions = new INTERNET_PER_CONN_OPTION[3];
 
   if (!list.pOptions)
   {
+    std::cerr << "Failed to allocate memory for proxy options." << std::endl;
     return;
   }
 
+  std::cout << "Setting system proxy to: " << url << " with bypass: " << bypassList << std::endl;
+
   list.pOptions[0].dwOption = INTERNET_PER_CONN_FLAGS;
-  list.pOptions[0].Value.dwValue = PROXY_TYPE_DIRECT | PROXY_TYPE_PROXY;
+  // Previously: PROXY_TYPE_DIRECT | PROXY_TYPE_PROXY
+  // Changed to: PROXY_TYPE_PROXY to force system to use proxy settings strictly
+  list.pOptions[0].Value.dwValue = PROXY_TYPE_PROXY;
 
   list.pOptions[1].dwOption = INTERNET_PER_CONN_PROXY_SERVER;
-  list.pOptions[1].Value.pszValue = fullAddr;
+  list.pOptions[1].Value.pszValue = const_cast<LPWSTR>(wUrl.c_str());
 
   list.pOptions[2].dwOption = INTERNET_PER_CONN_PROXY_BYPASS;
-  list.pOptions[2].Value.pszValue = bypassAddr;
+  list.pOptions[2].Value.pszValue = const_cast<LPWSTR>(wBypassList.c_str());
 
-  InternetSetOption(nullptr, INTERNET_OPTION_PER_CONNECTION_OPTION, &list, dwBufSize);
+  if (!InternetSetOption(nullptr, INTERNET_OPTION_PER_CONNECTION_OPTION, &list, dwBufSize)) {
+      std::cerr << "InternetSetOption failed for NULL connection. Error: " << GetLastError() << std::endl;
+  }
 
   RASENTRYNAME entry;
   entry.dwSize = sizeof(entry);
@@ -78,18 +91,20 @@ void startProxy(const int port, const flutter::EncodableList& bypassDomain)
     entryAddr = entries.data();
     ret = RasEnumEntries(nullptr, nullptr, entryAddr, &size, &count);
   }
-  if (ret != ERROR_SUCCESS)
+  
+  if (ret == ERROR_SUCCESS)
   {
-    return;
-  }
-  for (DWORD i = 0; i < count; i++)
-  {
-    list.pszConnection = entryAddr[i].szEntryName;
-    InternetSetOption(nullptr, INTERNET_OPTION_PER_CONNECTION_OPTION, &list, dwBufSize);
+      for (DWORD i = 0; i < count; i++)
+      {
+        list.pszConnection = entryAddr[i].szEntryName;
+        if (!InternetSetOption(nullptr, INTERNET_OPTION_PER_CONNECTION_OPTION, &list, dwBufSize)) {
+            std::cerr << "InternetSetOption failed for RAS connection: " << entryAddr[i].szEntryName << ". Error: " << GetLastError() << std::endl;
+        }
+      }
+  } else {
+       std::cerr << "RasEnumEntries failed. Error: " << ret << std::endl;
   }
 
-  delete[] fullAddr;
-  delete[] bypassAddr;
   delete[] list.pOptions;
 
   InternetSetOption(nullptr, INTERNET_OPTION_SETTINGS_CHANGED, nullptr, 0);
