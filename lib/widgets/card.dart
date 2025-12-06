@@ -77,6 +77,7 @@ class CommonCard extends StatelessWidget {
     super.key,
     bool? isSelected,
     this.type = CommonCardType.plain,
+    this.onPressed,
     this.selectWidget,
     this.radius = 20, // 加大圆角，更圆润
     required this.child,
