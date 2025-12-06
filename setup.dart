@@ -82,8 +82,8 @@ class BuildItem {
 
 class Build {
   static List<BuildItem> get buildItems => [
-    BuildItem(target: Target.macos, arch: Arch.arm64),
-    BuildItem(target: Target.macos, arch: Arch.amd64),
+    BuildItem(target: Target.macos, arch: Arch.arm64, archName: 'arm64'),
+    BuildItem(target: Target.macos, arch: Arch.amd64, archName: 'amd64'),
     BuildItem(target: Target.linux, arch: Arch.arm64),
     BuildItem(target: Target.linux, arch: Arch.amd64),
     BuildItem(target: Target.windows, arch: Arch.amd64),
