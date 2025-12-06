@@ -115,7 +115,7 @@ class CommonCard extends StatelessWidget {
     return BorderSide(
       color: isSelected
           ? colorScheme.primary
-          : colorScheme.surfaceContainerHighest,
+          : const Color(0xFF87CEEB).withOpacity(0.6), // 淡蓝色边框
     );
   }
 

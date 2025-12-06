@@ -551,11 +551,12 @@ ColorScheme genColorScheme(
       (state) => VM2(a: state.primaryColor, b: state.schemeVariant),
     ),
   );
+  ColorScheme scheme;
   if (color == null && (ignoreConfig == true || vm2.a == null)) {
     // if (globalState.corePalette != null) {
     //   return globalState.corePalette!.toColorScheme(brightness: brightness);
     // }
-    return ColorScheme.fromSeed(
+    scheme = ColorScheme.fromSeed(
       seedColor:
           globalState.corePalette
               ?.toColorScheme(brightness: brightness)
@@ -564,12 +565,22 @@ ColorScheme genColorScheme(
       brightness: brightness,
       dynamicSchemeVariant: vm2.b,
     );
+  } else {
+    scheme = ColorScheme.fromSeed(
+      seedColor: color ?? Color(vm2.a!),
+      brightness: brightness,
+      dynamicSchemeVariant: vm2.b,
+    );
   }
-  return ColorScheme.fromSeed(
-    seedColor: color ?? Color(vm2.a!),
-    brightness: brightness,
-    dynamicSchemeVariant: vm2.b,
-  );
+
+  if (brightness == Brightness.light) {
+    return scheme.copyWith(
+      surface: const Color(0xFFF3F4F9), // 淡蓝紫色背景
+      surfaceContainer: const Color(0xFFFFFFFF), // 卡片背景保持纯白
+    );
+  }
+
+  return scheme;
 }
 
 @riverpod
