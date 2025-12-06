@@ -279,24 +279,53 @@ jobs:
             --fallbackUrl="${{ github.event.inputs.fallbackUrl }}" \
             --iconPath="${{ github.event.inputs.iconUrl != '' && github.event.inputs.iconUrl || 'assets/images/icon.png' }}"
             
-      - name: Build Core
-        run: dart setup.dart macos --out core --arch arm64
-
-      - name: Build macOS
-        run: flutter build macos --release --dart-define=APP_ENV=stable
-        
-      - name: Create DMG
+      - name: Build and Package macOS (arm64)
         run: |
+          echo ">>> Building arm64 Core..."
+          dart setup.dart macos --out core --arch arm64
+          chmod +x libclash/macos/arm64/FlClashCore
+          # Copy to the path Xcode expects
+          cp libclash/macos/arm64/FlClashCore libclash/macos/FlClashCore
+          
+          echo ">>> Building Flutter App (arm64 assets)..."
+          flutter clean
+          flutter pub get
+          flutter build macos --release --dart-define=APP_ENV=stable
+          
+          echo ">>> Packaging arm64 DMG..."
           cd build/macos/Build/Products/Release
           APP_NAME=$(ls -d *.app | head -n 1)
-          hdiutil create -volname "${{ github.event.inputs.binaryName }}" -srcfolder "$APP_NAME" -ov -format UDZO "${{ github.event.inputs.binaryName }}.dmg"
-          mv "${{ github.event.inputs.binaryName }}.dmg" ../../../../../
+          DMG_NAME="${{ github.event.inputs.binaryName }}-arm64.dmg"
+          hdiutil create -volname "${{ github.event.inputs.binaryName }}" -srcfolder "$APP_NAME" -ov -format UDZO "$DMG_NAME"
+          mv "$DMG_NAME" ../../../../../
+          
+      - name: Build and Package macOS (amd64)
+        run: |
+          echo ">>> Building amd64 Core..."
+          dart setup.dart macos --out core --arch amd64
+          chmod +x libclash/macos/amd64/FlClashCore
+          # Copy to the path Xcode expects
+          cp libclash/macos/amd64/FlClashCore libclash/macos/FlClashCore
+          
+          echo ">>> Building Flutter App (amd64 assets)..."
+          flutter clean
+          flutter pub get
+          flutter build macos --release --dart-define=APP_ENV=stable
+          
+          echo ">>> Packaging amd64 DMG..."
+          cd build/macos/Build/Products/Release
+          APP_NAME=$(ls -d *.app | head -n 1)
+          DMG_NAME="${{ github.event.inputs.binaryName }}-amd64.dmg"
+          hdiutil create -volname "${{ github.event.inputs.binaryName }}" -srcfolder "$APP_NAME" -ov -format UDZO "$DMG_NAME"
+          mv "$DMG_NAME" ../../../../../
           
       - name: Upload macOS Build
         uses: actions/upload-artifact@v4
         with:
           name: ${{ github.event.inputs.binaryName }}-macOS
-          path: ${{ github.event.inputs.binaryName }}.dmg
+          path: |
+            ${{ github.event.inputs.binaryName }}-arm64.dmg
+            ${{ github.event.inputs.binaryName }}-amd64.dmg
 
   build-linux:
     name: Build Linux Client
