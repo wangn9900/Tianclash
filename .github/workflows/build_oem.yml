@@ -193,9 +193,20 @@ jobs:
           }
           
           # 验证关键文件存在
-          $requiredFiles = @("TianQue.exe", "flutter_windows.dll", "FlClashCore.exe")
+          $requiredFiles = @("TianQue.exe", "flutter_windows.dll", "FlClashCore.exe", "FlClashHelperService.exe")
           foreach ($file in $requiredFiles) {
             $filePath = Join-Path $releaseDir $file
+            
+            # 尝试从 libclash 复制缺失的 Helper Service
+            if ($file -eq "FlClashHelperService.exe" -and (-not (Test-Path $filePath))) {
+                Write-Warning "$file not found in release dir, attempting to copy locally..."
+                $helperSrc = "libclash\windows\FlClashHelperService.exe"
+                if (Test-Path $helperSrc) {
+                    Copy-Item -Path $helperSrc -Destination $filePath
+                    Write-Host "Successfully copied $file from $helperSrc"
+                }
+            }
+
             if (-not (Test-Path $filePath)) {
               Write-Error "Required file not found: $file"
               exit 1
