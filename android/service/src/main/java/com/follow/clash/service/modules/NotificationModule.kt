@@ -105,27 +105,15 @@ class NotificationModule(private val service: Service) : Module() {
     }
 
     private fun update(params: ExtendedNotificationParams) {
-        if (Build.VERSION.SDK_INT >= 34) {
-            service.startForeground(
-                with(notificationBuilder) {
-                    setContentTitle(params.title)
-                    setContentText(params.contentText)
-                    clearActions()
-                    addAction(
-                        0, params.stopText, QuickAction.STOP.quickIntent.toPendingIntent
-                    ).build()
-                }, 32)
-        } else {
-            service.startForeground(
-                with(notificationBuilder) {
-                    setContentTitle(params.title)
-                    setContentText(params.contentText)
-                    clearActions()
-                    addAction(
-                        0, params.stopText, QuickAction.STOP.quickIntent.toPendingIntent
-                    ).build()
-                })
-        }
+        service.startForeground(
+            with(notificationBuilder) {
+                setContentTitle(params.title)
+                setContentText(params.contentText)
+                clearActions()
+                addAction(
+                    0, params.stopText, QuickAction.STOP.quickIntent.toPendingIntent
+                ).build()
+            })
     }
 
     override fun onUninstall() {
