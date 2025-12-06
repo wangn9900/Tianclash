@@ -9,6 +9,7 @@ import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/state.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 
 class Request {
   late final Dio dio;
@@ -149,6 +150,11 @@ class Request {
           .timeout(const Duration(milliseconds: 2000));
       if (response.statusCode != HttpStatus.ok) {
         return false;
+      }
+      // Debug 模式下跳过 SHA256 验证，因为编译时可能没设置
+      if (kDebugMode) {
+        print('pingHelper: Debug mode, skipping SHA256 check');
+        return true;
       }
       return (response.data as String) == globalState.coreSHA256;
     } catch (_) {

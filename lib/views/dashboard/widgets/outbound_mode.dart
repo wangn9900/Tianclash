@@ -64,13 +64,36 @@ class OutboundMode extends StatelessWidget {
                 scale: 0.8,
                 child: Switch(
                   value: ref.watch(
-                    patchClashConfigProvider
-                        .select((state) => state.tun.enable),
+                    patchClashConfigProvider.select(
+                      (state) => state.tun.enable,
+                    ),
                   ),
                   onChanged: (value) {
-                    ref.read(patchClashConfigProvider.notifier).updateState(
+                    print('OutboundMode: TUN switch changed to $value');
+                    // 更新 TUN 配置
+                    ref
+                        .read(patchClashConfigProvider.notifier)
+                        .updateState(
                           (state) => state.copyWith.tun(enable: value),
                         );
+
+                    // 使用 Future.microtask 确保状态更新后再执行
+                    Future.microtask(() async {
+                      if (value) {
+                        // 打开 TUN → 先更新配置，再自动连接
+                        print(
+                          'OutboundMode: TUN enabled, updating config and starting...',
+                        );
+                        // 先更新配置让核心知道要开启 TUN
+                        await globalState.appController.updateClashConfig();
+                        // 再启动连接
+                        await globalState.appController.startSystemProxy();
+                      } else {
+                        // 关闭 TUN → 自动断开
+                        print('OutboundMode: TUN disabled, auto-stopping...');
+                        await globalState.appController.stopSystemProxy();
+                      }
+                    });
                   },
                 ),
               ),
@@ -81,4 +104,3 @@ class OutboundMode extends StatelessWidget {
     );
   }
 }
-

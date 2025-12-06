@@ -233,6 +233,10 @@ class AppController {
           print('AppController: stopProxy error: $e');
         }
 
+        // 关闭所有活动连接
+        print('AppController: Closing all connections...');
+        coreController.closeConnections();
+
         await globalState.handleStop();
       }
 
@@ -240,6 +244,9 @@ class AppController {
       _ref.read(trafficsProvider.notifier).clear();
       _ref.read(totalTrafficProvider.notifier).value = Traffic();
       _ref.read(runTimeProvider.notifier).value = null;
+
+      // 等待代理完全停止后再刷新 IP
+      await Future.delayed(const Duration(milliseconds: 800));
       addCheckIpNumDebounce();
       _ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
     }
@@ -424,23 +431,40 @@ class AppController {
   }
 
   Future<Result<bool>> _requestAdmin(bool enableTun) async {
-    if (system.isWindows && kDebugMode) {
-      return Result.success(false);
-    }
+    // 注释：原来在 Debug 模式下直接返回 false，导致 TUN 不生效
+    // 现在移除这个限制，让 Debug 模式也能使用 TUN
+    print('_requestAdmin: enableTun=$enableTun, isWindows=${system.isWindows}');
     final realTunEnable = _ref.read(realTunEnableProvider);
-    if (enableTun != realTunEnable && realTunEnable == false) {
+
+    // 如果要开启 TUN 且当前没开启，需要请求管理员权限
+    if (enableTun && !realTunEnable) {
+      print('_requestAdmin: Requesting admin permission...');
       final code = await system.authorizeCore();
+      print('_requestAdmin: authorizeCore result: $code');
       switch (code) {
         case AuthorizeCode.success:
-          await restartCore();
-          return Result.error('');
+          // 成功获取权限，继续更新配置
+          print('_requestAdmin: Admin permission granted');
+          break;
         case AuthorizeCode.none:
+          // 已经有权限，继续
+          print('_requestAdmin: Already has permission');
           break;
         case AuthorizeCode.error:
+          // Debug 模式下忽略服务错误，允许 TUN 测试
+          if (kDebugMode) {
+            print(
+              '_requestAdmin: Service error in debug mode, allowing TUN anyway',
+            );
+            break;
+          }
+          print('_requestAdmin: Admin permission denied');
           enableTun = false;
           break;
       }
     }
+
+    print('_requestAdmin: Setting realTunEnable to $enableTun');
     _ref.read(realTunEnableProvider.notifier).value = enableTun;
     return Result.success(enableTun);
   }

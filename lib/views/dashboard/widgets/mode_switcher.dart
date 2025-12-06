@@ -14,6 +14,10 @@ class ModeSwitcher extends ConsumerWidget {
     final mode = ref.watch(
       patchClashConfigProvider.select((state) => state.mode),
     );
+    final tunEnabled = ref.watch(
+      patchClashConfigProvider.select((state) => state.tun.enable),
+    );
+    print('ModeSwitcher: build called, tunEnabled=$tunEnabled');
 
     return CommonCard(
       child: Padding(
@@ -57,19 +61,28 @@ class ModeSwitcher extends ConsumerWidget {
               Transform.scale(
                 scale: 0.8,
                 child: Switch(
-                  value: ref.watch(
-                    patchClashConfigProvider.select(
-                      (state) => state.tun.enable,
-                    ),
-                  ),
+                  value: tunEnabled,
                   onChanged: (value) {
+                    print('ModeSwitcher: TUN switch changed to $value');
+                    // 更新 TUN 配置
                     ref
                         .read(patchClashConfigProvider.notifier)
                         .updateState(
                           (state) => state.copyWith.tun(enable: value),
                         );
-                    // 立即更新 Clash 配置，让核心应用 TUN 状态变化
-                    globalState.appController.updateClashConfigDebounce();
+
+                    // 使用 Future.microtask 确保状态更新后再执行
+                    Future.microtask(() async {
+                      if (value) {
+                        // 打开 TUN → 自动连接
+                        print('ModeSwitcher: TUN enabled, auto-starting...');
+                        await globalState.appController.startSystemProxy();
+                      } else {
+                        // 关闭 TUN → 自动断开
+                        print('ModeSwitcher: TUN disabled, auto-stopping...');
+                        await globalState.appController.stopSystemProxy();
+                      }
+                    });
                   },
                 ),
               ),
