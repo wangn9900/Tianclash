@@ -83,12 +83,12 @@ object State {
             if (runStateFlow.value != RunState.START) {
                 return
             }
-            tilePlugin?.handleStop()
-            if (flutterEngine != null || serviceFlutterEngine != null) {
-                return
-            }
-            handleStopService()
         }
+        // 在锁外执行停止操作，避免死锁
+        // 直接调用 await 版本以确保等待完成
+        handleStopServiceAwait()
+        // 停止完成后通知 UI 更新
+        tilePlugin?.handleStop()
     }
 
     fun handleStartService() {

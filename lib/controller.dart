@@ -252,6 +252,23 @@ class AppController {
     }
   }
 
+  /// 仅同步断开连接的状态，不触发实际的 Android VPN 停止逻辑
+  /// 用于处理来自原生层的停止通知（如 Tile 或 System Kill）
+  Future<void> syncDisconnectState() async {
+    print('AppController: Syncing disconnect state from native event...');
+    coreController.resetTraffic();
+    _ref.read(trafficsProvider.notifier).clear();
+    _ref.read(totalTrafficProvider.notifier).value = Traffic();
+    _ref.read(runTimeProvider.notifier).value = null;
+
+    // 清理全局状态
+    globalState.startTime = null;
+    globalState.stopUpdateTasks();
+
+    addCheckIpNumDebounce();
+    _ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
+  }
+
   void updateRunTime() {
     final startTime = globalState.startTime;
     if (startTime != null) {

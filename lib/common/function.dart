@@ -79,7 +79,7 @@ Future<T> retry<T>({
     }
     attempts++;
   }
-  throw 'retry error';
+  throw 'retry error: 重试 $maxAttempts 次后仍失败';
 }
 
 final debouncer = Debouncer();

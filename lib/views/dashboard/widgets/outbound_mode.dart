@@ -53,7 +53,7 @@ class OutboundMode extends StatelessWidget {
                 ),
               ),
             ),
-            if (system.isWindows) ...[
+            if (system.isDesktop) ...[
               const SizedBox(width: 16),
               const Text(
                 "开启虚拟网卡",

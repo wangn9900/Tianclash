@@ -29,10 +29,12 @@ class _TileContainerState extends State<TileManager> with TileListener {
 
   @override
   Future<void> onStop() async {
-    if (!globalState.appState.isStart) {
-      return;
-    }
-    globalState.appController.updateStatus(false);
+    // Kotlin 侧已经停止了 VPN 服务，这里只需要同步本地 UI 状态
+    // 调用 syncDisconnectState 确保所有 Providers 和全局状态正确重置
+    print(
+      'TileManager: onStop received from Kotlin, syncing disconnect state...',
+    );
+    await globalState.appController.syncDisconnectState();
     super.onStop();
   }
 

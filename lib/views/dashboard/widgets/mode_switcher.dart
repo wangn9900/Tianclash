@@ -52,7 +52,7 @@ class ModeSwitcher extends ConsumerWidget {
                 ),
               ),
             ),
-            if (system.isWindows) ...[
+            if (system.isDesktop) ...[
               const SizedBox(width: 12),
               const Text(
                 "开启虚拟网卡",
