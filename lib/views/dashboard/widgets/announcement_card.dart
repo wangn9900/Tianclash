@@ -2,7 +2,7 @@ import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/common/v2board_service.dart';
 import 'package:fl_clash/models/v2board.dart';
 import 'package:fl_clash/providers/providers.dart';
-import 'package:fl_clash/widgets/widgets.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -208,7 +208,25 @@ class _AnnouncementCardState extends ConsumerState<AnnouncementCard> {
 
   @override
   Widget build(BuildContext context) {
-    return CommonCard(
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFF0F7FF), // 极淡的蓝色背景
+            Colors.white,
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFE3F2FD).withOpacity(0.5),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(

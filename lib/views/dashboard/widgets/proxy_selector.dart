@@ -18,18 +18,19 @@ class ProxySelector extends ConsumerStatefulWidget {
 }
 
 class _ProxySelectorState extends ConsumerState<ProxySelector> {
-
   Group _getMainGroup(List<Group> groups, Mode mode) {
     if (mode == Mode.global) {
       final globalGroup = groups.firstWhereOrNull((g) => g.name == 'GLOBAL');
       if (globalGroup != null) return globalGroup;
     }
-    
+
     return groups.firstWhereOrNull(
-      (g) => g.type == GroupType.Selector && ['Proxy', '节点选择', '代理'].contains(g.name),
-    ) ?? groups.firstWhereOrNull(
-      (g) => g.type == GroupType.Selector,
-    ) ?? groups.first;
+          (g) =>
+              g.type == GroupType.Selector &&
+              ['Proxy', '节点选择', '代理'].contains(g.name),
+        ) ??
+        groups.firstWhereOrNull((g) => g.type == GroupType.Selector) ??
+        groups.first;
   }
 
   Future<void> _showProxySelector(BuildContext context) async {
@@ -71,7 +72,9 @@ class _ProxySelectorState extends ConsumerState<ProxySelector> {
     print('ProxySelector: build called');
     final groups = ref.watch(currentGroupsStateProvider).value ?? [];
     final selectedMap = ref.watch(selectedMapProvider);
-    final mode = ref.watch(patchClashConfigProvider.select((state) => state.mode));
+    final mode = ref.watch(
+      patchClashConfigProvider.select((state) => state.mode),
+    );
     final currentProfile = ref.watch(currentProfileProvider);
 
     if (groups.isEmpty) {
@@ -91,18 +94,19 @@ class _ProxySelectorState extends ConsumerState<ProxySelector> {
             message = '套餐过期请续费';
             iconColor = Colors.red;
             icon = Icons.timer_off_outlined;
-          } else if (info.total > 0 && (info.upload + info.download) >= info.total) {
+          } else if (info.total > 0 &&
+              (info.upload + info.download) >= info.total) {
             message = '流量用尽请续费';
             iconColor = Colors.red;
             icon = Icons.data_usage;
           } else {
-             // Profile exists, info exists, but no nodes found.
-             // This could happen if the subscription returns an empty list but is valid.
-             message = '订阅内容为空';
+            // Profile exists, info exists, but no nodes found.
+            // This could happen if the subscription returns an empty list but is valid.
+            message = '订阅内容为空';
           }
         } else {
-           // Profile exists but no info.
-           message = '无法获取订阅信息';
+          // Profile exists but no info.
+          message = '无法获取订阅信息';
         }
       }
 
@@ -113,7 +117,9 @@ class _ProxySelectorState extends ConsumerState<ProxySelector> {
             children: [
               Icon(icon, color: iconColor),
               const SizedBox(width: 12),
-              Expanded(child: Text(message, style: context.textTheme.bodyMedium)),
+              Expanded(
+                child: Text(message, style: context.textTheme.bodyMedium),
+              ),
               IconButton(
                 icon: const Icon(Icons.refresh),
                 onPressed: () {
@@ -129,13 +135,13 @@ class _ProxySelectorState extends ConsumerState<ProxySelector> {
     }
 
     final mainGroup = _getMainGroup(groups, mode);
-    
+
     print('ProxySelector: groups count: ${groups.length}, mode: $mode');
     print('ProxySelector: mainGroup: ${mainGroup.name}');
 
     // 优先使用 selectedMap,如果没有则使用 mainGroup.now
     final currentProxyName = selectedMap[mainGroup.name] ?? mainGroup.now;
-    
+
     final currentProxy = mainGroup.all.firstWhere(
       (p) => p.name == currentProxyName,
       orElse: () => Proxy(name: currentProxyName ?? '自动选择', type: ''),
@@ -151,65 +157,86 @@ class _ProxySelectorState extends ConsumerState<ProxySelector> {
           )
         : null;
 
-    return CommonCard(
-      child: InkWell(
-        onTap: () => _showProxySelector(context),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Icon(
-                Icons.public,
-                color: context.colorScheme.primary,
-                size: 24,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '节点选择${mainGroup.name == 'GLOBAL' ? ' (全局)' : ''}',
-                      style: context.textTheme.bodySmall?.copyWith(
-                        color: context.colorScheme.onSurfaceVariant,
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFF0F7FF), // 极淡的蓝色背景
+            Colors.white,
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFE3F2FD).withOpacity(0.5),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _showProxySelector(context),
+          borderRadius: BorderRadius.circular(24),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.public,
+                  color: context.colorScheme.primary,
+                  size: 24,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '节点选择${mainGroup.name == 'GLOBAL' ? ' (全局)' : ''}',
+                        style: context.textTheme.bodySmall?.copyWith(
+                          color: context.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        currentProxy.name,
+                        style: context.textTheme.titleMedium?.toSoftBold,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                if (delay != null && delay > 0) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _getDelayColor(delay).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${delay}ms',
+                      style: context.textTheme.labelSmall?.copyWith(
+                        color: _getDelayColor(delay),
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      currentProxy.name,
-                      style: context.textTheme.titleMedium?.toSoftBold,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                Icon(
+                  Icons.expand_more,
+                  color: context.colorScheme.onSurfaceVariant,
                 ),
-              ),
-              if (delay != null && delay > 0) ...[
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _getDelayColor(delay).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '${delay}ms',
-                    style: context.textTheme.labelSmall?.copyWith(
-                      color: _getDelayColor(delay),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
               ],
-              Icon(
-                Icons.expand_more,
-                color: context.colorScheme.onSurfaceVariant,
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -285,7 +312,9 @@ class _ProxyListSheetState extends ConsumerState<_ProxyListSheet> {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: context.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+              color: context.colorScheme.onSurfaceVariant.withValues(
+                alpha: 0.3,
+              ),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -323,10 +352,7 @@ class _ProxyListSheetState extends ConsumerState<_ProxyListSheet> {
                             color: context.colorScheme.primary,
                           ),
                         )
-                      : Icon(
-                          Icons.speed,
-                          color: context.colorScheme.primary,
-                        ),
+                      : Icon(Icons.speed, color: context.colorScheme.primary),
                   tooltip: '测试延迟',
                 ),
               ],
@@ -405,11 +431,7 @@ class _ProxyListItem extends StatelessWidget {
                 color: isSelected ? Colors.green : null,
               ),
               child: isSelected
-                  ? const Icon(
-                      Icons.check,
-                      size: 14,
-                      color: Colors.white,
-                    )
+                  ? const Icon(Icons.check, size: 14, color: Colors.white)
                   : null,
             ),
             const SizedBox(width: 12),
@@ -421,8 +443,9 @@ class _ProxyListItem extends StatelessWidget {
                   Text(
                     proxy.name,
                     style: context.textTheme.bodyMedium?.copyWith(
-                      fontWeight:
-                          isSelected ? FontWeight.bold : FontWeight.normal,
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.normal,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -443,9 +466,7 @@ class _ProxyListItem extends StatelessWidget {
                 const SizedBox(
                   width: 16,
                   height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                  ),
+                  child: CircularProgressIndicator(strokeWidth: 2),
                 )
               else if (delay! > 0)
                 Container(
@@ -454,7 +475,10 @@ class _ProxyListItem extends StatelessWidget {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: _getDelayColor(delay!, context).withValues(alpha: 0.1),
+                    color: _getDelayColor(
+                      delay!,
+                      context,
+                    ).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(

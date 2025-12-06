@@ -40,7 +40,25 @@ class _NetworkDetectionState extends ConsumerState<NetworkDetection> {
         final ipInfo = state.ipInfo;
         final isLoading = state.isLoading;
 
-        return CommonCard(
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFFF0F7FF), // 极淡的蓝色背景
+                Colors.white,
+              ],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFE3F2FD).withOpacity(0.5),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
