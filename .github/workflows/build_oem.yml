@@ -146,6 +146,16 @@ jobs:
         with:
           channel: 'stable'
           cache: true
+      
+      - name: Install Inno Setup
+        run: |
+          Write-Host "Installing Inno Setup 6..."
+          choco install innosetup -y
+          if (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe") {
+            Write-Host "Inno Setup 6 installed successfully"
+          } else {
+            Write-Warning "Inno Setup 6 installation may have failed"
+          }
           
       - name: Get Dependencies
         run: flutter pub get
@@ -254,11 +264,54 @@ jobs:
             Write-Warning "Package seems too small! Expected > 50MB"
           }
           
+      - name: Copy EXE Installer
+        run: |
+          Write-Host "=== Looking for EXE installer ==="
+          $distDir = "dist"
+          $binaryName = "${{ github.event.inputs.binaryName }}"
+          
+          Write-Host "Binary name: $binaryName"
+          Write-Host "Checking dist directory..."
+          
+          if (Test-Path $distDir) {
+            Write-Host "=== dist directory contents ==="
+            Get-ChildItem $distDir -Recurse | ForEach-Object {
+              Write-Host "$($_.FullName) - $($_.Length) bytes"
+            }
+            
+            $exeFiles = Get-ChildItem -Path $distDir -Filter "*.exe" -Recurse
+            Write-Host "Found $($exeFiles.Count) exe file(s)"
+            
+            if ($exeFiles.Count -gt 0) {
+              foreach ($exe in $exeFiles) {
+                $newName = "$binaryName-Windows-Setup.exe"
+                Copy-Item -Path $exe.FullName -Destination $newName -Force
+                Write-Host "Copied: $($exe.FullName) -> $newName"
+                
+                $newFile = Get-Item $newName
+                Write-Host "New file size: $($newFile.Length) bytes"
+              }
+            } else {
+              Write-Warning "No EXE installer found in dist directory"
+            }
+          } else {
+            Write-Warning "dist directory not found"
+          }
+          
+          Write-Host ""
+          Write-Host "=== Final files to upload ==="
+          Get-ChildItem -Filter "$binaryName-Windows*" | ForEach-Object {
+            Write-Host "$($_.Name) - $($_.Length) bytes"
+          }
+          
       - name: Upload Windows Build
         uses: actions/upload-artifact@v4
         with:
           name: ${{ github.event.inputs.binaryName }}-Windows
-          path: ${{ github.event.inputs.binaryName }}-Windows.zip
+          path: |
+            ${{ github.event.inputs.binaryName }}-Windows.zip
+            ${{ github.event.inputs.binaryName }}-Windows-Setup.exe
+          if-no-files-found: warn
 
   build-macos:
     name: Build macOS Client
@@ -462,8 +515,8 @@ jobs:
           # 复制所有构建文件到 release 目录
           for dir in ./all-artifacts/*/; do
             echo "Processing: $dir"
-            # 复制目录中的所有文件
-            find "$dir" -type f \( -name "*.apk" -o -name "*.zip" -o -name "*.dmg" -o -name "*.tar.gz" \) -exec cp {} ./release/ \;
+            # 复制目录中的所有文件（包括 exe 安装包）
+            find "$dir" -type f \( -name "*.apk" -o -name "*.zip" -o -name "*.dmg" -o -name "*.tar.gz" -o -name "*.exe" \) -exec cp {} ./release/ \;
           done
           
           echo ""
