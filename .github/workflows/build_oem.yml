@@ -6,11 +6,11 @@ on:
       appName:
         description: 'App Name (应用名称)'
         required: true
-        default: '展示'
+        default: '天阙加速'
       binaryName:
         description: 'Binary Name (可执行文件名, 英文/拼音)'
         required: true
-        default: 'ZhanShi'
+        default: 'TianQue'
       packageName:
         description: 'Package Name (包名)'
         required: true
@@ -18,7 +18,7 @@ on:
       ossUrl:
         description: 'OSS URL (配置接口)'
         required: true
-        default: 'https://oss.tianque.cc/osss_config.txt'
+        default: 'https://oss.tianque.cc/oss_config.txt'
       imgbbApiKey:
         description: 'ImgBB API Key (图床Key)'
         required: true
@@ -26,7 +26,7 @@ on:
       backupUrls:
         description: 'Backup URLs (备用地址, 逗号分隔)'
         required: false
-        default: 'https://210.16.123.247,https://210.16.123.247,https://210.16.123.247'
+        default: 'https://154.219.96.225:2621,https://tq.tianquege.top,https://gogogo.tianquege.top'
       fallbackUrl:
         description: 'Fallback URL (回退地址)'
         required: false
@@ -34,7 +34,7 @@ on:
       iconUrl:
         description: 'Icon URL (图标链接, 可选)'
         required: false
-        default: 'https://oss.tianque.cc/i8.png'
+        default: 'https://oss.tianque.cc/logo1.png'
       publishRelease:
         description: 'Publish Release (是否自动发布 Release)'
         required: false
@@ -627,3 +627,4 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
