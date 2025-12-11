@@ -1,0 +1,629 @@
+name: Build OEM Client
+
+on:
+  workflow_dispatch:
+    inputs:
+      appName:
+        description: 'App Name (应用名称)'
+        required: true
+        default: '展示'
+      binaryName:
+        description: 'Binary Name (可执行文件名, 英文/拼音)'
+        required: true
+        default: 'ZhanShi'
+      packageName:
+        description: 'Package Name (包名)'
+        required: true
+        default: 'com.follow.clash'
+      ossUrl:
+        description: 'OSS URL (配置接口)'
+        required: true
+        default: 'https://oss.tianque.cc/osss_config.txt'
+      imgbbApiKey:
+        description: 'ImgBB API Key (图床Key)'
+        required: true
+        default: '85719aefcab7c40a7eaed3b06784898a'
+      backupUrls:
+        description: 'Backup URLs (备用地址, 逗号分隔)'
+        required: false
+        default: 'https://210.16.123.247,https://210.16.123.247,https://210.16.123.247'
+      fallbackUrl:
+        description: 'Fallback URL (回退地址)'
+        required: false
+        default: 'https://150.241.207.176:8443'
+      iconUrl:
+        description: 'Icon URL (图标链接, 可选)'
+        required: false
+        default: 'https://oss.tianque.cc/i8.png'
+      publishRelease:
+        description: 'Publish Release (是否自动发布 Release)'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: wangn9900/MOMclash
+          token: ${{ secrets.ACCESS_TOKEN }}
+          submodules: recursive
+          ref: main
+      
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.0'
+          cache-dependency-path: |
+            core/go.sum
+          
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+          
+      - name: Get Dependencies
+        run: flutter pub get
+        
+      - name: Update Version
+        run: dart run scripts/update_version.dart
+        
+      - name: Get Version
+        id: get_version
+        shell: bash
+        run: |
+          VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //')
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Version is $VERSION"
+
+      - name: Update OEM Config
+        run: |
+          dart run scripts/update_oem.dart \
+            --appName="${{ github.event.inputs.appName }}" \
+            --binaryName="${{ github.event.inputs.binaryName }}" \
+            --packageName="${{ github.event.inputs.packageName }}" \
+            --ossUrl="${{ github.event.inputs.ossUrl }}" \
+            --imgbbApiKey="${{ github.event.inputs.imgbbApiKey }}" \
+            --backupUrls="${{ github.event.inputs.backupUrls }}" \
+            --fallbackUrl="${{ github.event.inputs.fallbackUrl }}" \
+            --iconPath="${{ github.event.inputs.iconUrl != '' && github.event.inputs.iconUrl || 'assets/images/icon.png' }}"
+            
+      - name: Build Core
+        run: dart setup.dart android --out core
+
+      - name: Setup Android Signing
+        run: |
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
+          elif [ -n "${{ secrets.KEYSTORE }}" ]; then
+            echo "${{ secrets.KEYSTORE }}" | base64 --decode > android/app/keystore.jks
+          else
+            echo "⚠️ No keystore secret found!"
+          fi
+          
+          if [ -n "${{ secrets.KEY_ALIAS }}" ]; then
+            echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/local.properties
+          fi
+          if [ -n "${{ secrets.KEYSTORE_PASSWORD }}" ]; then
+            echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" >> android/local.properties
+          elif [ -n "${{ secrets.STORE_PASSWORD }}" ]; then
+            echo "storePassword=${{ secrets.STORE_PASSWORD }}" >> android/local.properties
+          fi
+          if [ -n "${{ secrets.KEY_PASSWORD }}" ]; then
+            echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/local.properties
+          fi
+
+      - name: Build APK
+        run: flutter build apk --release --split-per-abi --dart-define=APP_ENV=stable
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.inputs.binaryName }}-${{ env.APP_VERSION }}-Android
+          path: |
+            build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+            build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
+            build/app/outputs/flutter-apk/app-x86_64-release.apk
+
+  build-windows:
+    name: Build Windows Client
+    runs-on: Windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: wangn9900/MOMclash
+          token: ${{ secrets.ACCESS_TOKEN }}
+          submodules: recursive
+          ref: main
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.0'
+          cache-dependency-path: |
+            core/go.sum
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+      
+      - name: Install Inno Setup
+        run: |
+          Write-Host "Installing Inno Setup 6..."
+          choco install innosetup -y
+          if (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe") {
+            Write-Host "Inno Setup 6 installed successfully"
+          } else {
+            Write-Warning "Inno Setup 6 installation may have failed"
+          }
+          
+      - name: Get Dependencies
+        run: flutter pub get
+        
+      - name: Update Version
+        run: dart run scripts/update_version.dart
+
+      - name: Get Version
+        id: get_version
+        shell: bash
+        run: |
+          VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //')
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Version is $VERSION"
+
+      - name: Update OEM Config
+        run: |
+          dart run scripts/update_oem.dart `
+            --appName="${{ github.event.inputs.appName }}" `
+            --binaryName="${{ github.event.inputs.binaryName }}" `
+            --packageName="${{ github.event.inputs.packageName }}" `
+            --ossUrl="${{ github.event.inputs.ossUrl }}" `
+            --imgbbApiKey="${{ github.event.inputs.imgbbApiKey }}" `
+            --backupUrls="${{ github.event.inputs.backupUrls }}" `
+            --fallbackUrl="${{ github.event.inputs.fallbackUrl }}" `
+            --iconPath="${{ github.event.inputs.iconUrl != '' && github.event.inputs.iconUrl || 'assets/images/icon.png' }}"
+            
+      - name: Prepare Build Environment
+        run: |
+          # 注意：不执行 flutter clean，因为这可能导致构建问题
+          # 只确保依赖是最新的
+          flutter pub get
+          
+          # 验证 OEM 配置更新成功
+          Write-Host "=== Verifying OEM Config Changes ==="
+          if (Test-Path "windows/runner/Runner.rc") {
+            Get-Content "windows/runner/Runner.rc" | Select-String -Pattern "FileDescription|ProductName" | ForEach-Object { Write-Host $_ }
+          }
+
+            
+      - name: Build Windows
+        run: |
+          # 使用与主构建相同的方式编译核心和应用
+          dart setup.dart windows --arch amd64 --env stable
+          
+      - name: Prepare Final Package
+        run: |
+          Write-Host "=== Preparing Windows Package ==="
+          
+          # Flutter 构建输出目录
+          $releaseDir = "build\windows\x64\runner\Release"
+          
+          # 检查构建是否成功
+          if (-not (Test-Path $releaseDir)) {
+            Write-Error "Release directory not found: $releaseDir"
+            exit 1
+          }
+          
+          Write-Host "=== Release directory contents ==="
+          Get-ChildItem $releaseDir -Recurse | ForEach-Object {
+            Write-Host "$($_.FullName) - $($_.Length) bytes"
+          }
+          
+          # 验证关键文件存在
+          $requiredFiles = @("TianQue.exe", "flutter_windows.dll", "FlClashCore.exe", "FlClashHelperService.exe")
+          foreach ($file in $requiredFiles) {
+            $filePath = Join-Path $releaseDir $file
+            
+            # 尝试从 libclash 复制缺失的 Helper Service
+            if ($file -eq "FlClashHelperService.exe" -and (-not (Test-Path $filePath))) {
+                Write-Warning "$file not found in release dir, attempting to copy locally..."
+                $helperSrc = "libclash\windows\FlClashHelperService.exe"
+                if (Test-Path $helperSrc) {
+                    Copy-Item -Path $helperSrc -Destination $filePath
+                    Write-Host "Successfully copied $file from $helperSrc"
+                }
+            }
+
+            if (-not (Test-Path $filePath)) {
+              Write-Error "Required file not found: $file"
+              exit 1
+            }
+            $fileInfo = Get-Item $filePath
+            Write-Host "Verified: $file = $($fileInfo.Length) bytes"
+          }
+          
+          # 重命名可执行文件（如果需要）
+          $binaryName = "${{ github.event.inputs.binaryName }}"
+          if ($binaryName -and $binaryName -ne "" -and $binaryName -ne "TianQue") {
+            $oldExe = Join-Path $releaseDir "TianQue.exe"
+            # 动态添加版本号到 Setup exe 名字 (可选，但通常 Setup 包才带版本，主 exe 可能不带)
+            $newExe = Join-Path $releaseDir "$binaryName.exe"
+            
+            Write-Host "Renaming TianQue.exe to $binaryName.exe"
+            Copy-Item -Path $oldExe -Destination $newExe -Force
+            Remove-Item -Path $oldExe -Force
+            
+            # 验证
+            $newFile = Get-Item $newExe
+            Write-Host "New exe: $($newFile.Name) = $($newFile.Length) bytes"
+          }
+          
+          # 直接打包 Release 目录（不解压重打包）
+          # 包含版本号的 Zip 包名
+          $finalZip = "${{ github.event.inputs.binaryName }}-${{ env.APP_VERSION }}-Windows.zip"
+          
+          Write-Host "Creating package: $finalZip"
+          
+          # 使用 Compress-Archive 直接打包
+          Compress-Archive -Path "$releaseDir\*" -DestinationPath $finalZip -Force
+          
+          # 验证最终包
+          $finalZipInfo = Get-Item $finalZip
+          Write-Host "Final package: $finalZip"
+          Write-Host "Final package size: $($finalZipInfo.Length) bytes"
+          
+          # 包大小应该至少 50MB（flutter_windows.dll + FlClashCore.exe 等）
+          if ($finalZipInfo.Length -lt 50000000) {
+            Write-Warning "Package seems too small! Expected > 50MB"
+          }
+          
+      - name: Copy EXE Installer
+        run: |
+          Write-Host "=== Looking for EXE installer ==="
+          $distDir = "dist"
+          $binaryName = "${{ github.event.inputs.binaryName }}"
+          
+          Write-Host "Binary name: $binaryName"
+          Write-Host "Checking dist directory..."
+          
+          if (Test-Path $distDir) {
+            Write-Host "=== dist directory contents ==="
+            Get-ChildItem $distDir -Recurse | ForEach-Object {
+              Write-Host "$($_.FullName) - $($_.Length) bytes"
+            }
+            
+            $exeFiles = Get-ChildItem -Path $distDir -Filter "*.exe" -Recurse
+            Write-Host "Found $($exeFiles.Count) exe file(s)"
+            
+            if ($exeFiles.Count -gt 0) {
+              foreach ($exe in $exeFiles) {
+                # Setup 包添加版本号
+                $newName = "$binaryName-${{ env.APP_VERSION }}-Windows-Setup.exe"
+                Copy-Item -Path $exe.FullName -Destination $newName -Force
+                Write-Host "Copied: $($exe.FullName) -> $newName"
+                
+                $newFile = Get-Item $newName
+                Write-Host "New file size: $($newFile.Length) bytes"
+              }
+            } else {
+              Write-Warning "No EXE installer found in dist directory"
+            }
+          } else {
+            Write-Warning "dist directory not found"
+          }
+          
+          Write-Host ""
+          Write-Host "=== Final files to upload ==="
+          Get-ChildItem -Filter "$binaryName-Windows*" | ForEach-Object {
+            Write-Host "$($_.Name) - $($_.Length) bytes"
+          }
+          
+      - name: Upload Windows Build
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.inputs.binaryName }}-${{ env.APP_VERSION }}-Windows
+          path: |
+            ${{ github.event.inputs.binaryName }}-${{ env.APP_VERSION }}-Windows.zip
+            ${{ github.event.inputs.binaryName }}-${{ env.APP_VERSION }}-Windows-Setup.exe
+          if-no-files-found: warn
+
+  build-macos:
+    name: Build macOS Client
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: wangn9900/MOMclash
+          token: ${{ secrets.ACCESS_TOKEN }}
+          submodules: recursive
+          ref: main
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.0'
+          cache-dependency-path: |
+            core/go.sum
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+          
+      - name: Get Dependencies
+        run: flutter pub get
+        
+      - name: Update Version
+        run: dart run scripts/update_version.dart
+
+      - name: Get Version
+        id: get_version
+        shell: bash
+        run: |
+          VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //')
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Version is $VERSION"
+
+      - name: Update OEM Config
+        run: |
+          dart run scripts/update_oem.dart \
+            --appName="${{ github.event.inputs.appName }}" \
+            --binaryName="${{ github.event.inputs.binaryName }}" \
+            --packageName="${{ github.event.inputs.packageName }}" \
+            --ossUrl="${{ github.event.inputs.ossUrl }}" \
+            --imgbbApiKey="${{ github.event.inputs.imgbbApiKey }}" \
+            --backupUrls="${{ github.event.inputs.backupUrls }}" \
+            --fallbackUrl="${{ github.event.inputs.fallbackUrl }}" \
+            --iconPath="${{ github.event.inputs.iconUrl != '' && github.event.inputs.iconUrl || 'assets/images/icon.png' }}"
+            
+      - name: Build and Package macOS (arm64)
+        run: |
+          echo ">>> Building arm64 Core..."
+          dart setup.dart macos --out core --arch arm64
+          chmod +x libclash/macos/arm64/FlClashCore
+          # Copy to the path Xcode expects
+          cp libclash/macos/arm64/FlClashCore libclash/macos/FlClashCore
+          
+          echo ">>> Building Flutter App (arm64 assets)..."
+          flutter clean
+          flutter pub get
+          flutter build macos --release --dart-define=APP_ENV=stable
+          
+          echo ">>> Packaging arm64 DMG..."
+          cd build/macos/Build/Products/Release
+          APP_NAME=$(ls -d *.app | head -n 1)
+          # 文件名包含版本号
+          DMG_NAME="${{ github.event.inputs.binaryName }}-${{ env.APP_VERSION }}-arm64.dmg"
+          hdiutil create -volname "${{ github.event.inputs.binaryName }}" -srcfolder "$APP_NAME" -ov -format UDZO "$DMG_NAME"
+          mv "$DMG_NAME" ../../../../../
+          
+      - name: Build and Package macOS (amd64)
+        run: |
+          echo ">>> Building amd64 Core..."
+          dart setup.dart macos --out core --arch amd64
+          chmod +x libclash/macos/amd64/FlClashCore
+          # Copy to the path Xcode expects
+          cp libclash/macos/amd64/FlClashCore libclash/macos/FlClashCore
+          
+          echo ">>> Building Flutter App (amd64 assets)..."
+          flutter clean
+          flutter pub get
+          flutter build macos --release --dart-define=APP_ENV=stable
+          
+          echo ">>> Packaging amd64 DMG..."
+          cd build/macos/Build/Products/Release
+          APP_NAME=$(ls -d *.app | head -n 1)
+          # 文件名包含版本号
+          DMG_NAME="${{ github.event.inputs.binaryName }}-${{ env.APP_VERSION }}-amd64.dmg"
+          hdiutil create -volname "${{ github.event.inputs.binaryName }}" -srcfolder "$APP_NAME" -ov -format UDZO "$DMG_NAME"
+          mv "$DMG_NAME" ../../../../../
+          
+      - name: Upload macOS Build
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.inputs.binaryName }}-${{ env.APP_VERSION }}-macOS
+          path: |
+            ${{ github.event.inputs.binaryName }}-${{ env.APP_VERSION }}-arm64.dmg
+            ${{ github.event.inputs.binaryName }}-${{ env.APP_VERSION }}-amd64.dmg
+
+  build-linux:
+    name: Build Linux Client
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: wangn9900/MOMclash
+          token: ${{ secrets.ACCESS_TOKEN }}
+          submodules: recursive
+          ref: main
+      
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libgtk-3-dev libayatana-appindicator3-dev liblzma-dev libkeybinder-3.0-dev
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.0'
+          cache-dependency-path: |
+            core/go.sum
+          
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+          
+      - name: Get Dependencies
+        run: flutter pub get
+        
+      - name: Update Version
+        run: dart run scripts/update_version.dart
+
+      - name: Get Version
+        id: get_version
+        shell: bash
+        run: |
+          VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //')
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Version is $VERSION"
+
+      - name: Update OEM Config
+        run: |
+          dart run scripts/update_oem.dart \
+            --appName="${{ github.event.inputs.appName }}" \
+            --binaryName="${{ github.event.inputs.binaryName }}" \
+            --packageName="${{ github.event.inputs.packageName }}" \
+            --ossUrl="${{ github.event.inputs.ossUrl }}" \
+            --imgbbApiKey="${{ github.event.inputs.imgbbApiKey }}" \
+            --backupUrls="${{ github.event.inputs.backupUrls }}" \
+            --fallbackUrl="${{ github.event.inputs.fallbackUrl }}" \
+            --iconPath="${{ github.event.inputs.iconUrl != '' && github.event.inputs.iconUrl || 'assets/images/icon.png' }}"
+
+      - name: Clean Build Cache
+        run: |
+          flutter clean
+          flutter pub get
+            
+      - name: Build Core
+        run: dart setup.dart linux --out core --arch amd64
+
+      - name: Build Linux
+        run: flutter build linux --release --dart-define=APP_ENV=stable
+        
+      - name: Rename Executable
+        run: |
+          RELEASE_DIR="build/linux/x64/release/bundle"
+          ORIGINAL_EXE="TianQue"
+          BINARY_NAME="${{ github.event.inputs.binaryName }}"
+          
+          if [ -n "$BINARY_NAME" ] && [ "$BINARY_NAME" != "" ]; then
+            if [ "$ORIGINAL_EXE" = "$BINARY_NAME" ]; then
+              echo "Binary name is same as original ($ORIGINAL_EXE), skipping rename"
+            else
+              echo "Renaming $ORIGINAL_EXE to $BINARY_NAME"
+              mv "$RELEASE_DIR/$ORIGINAL_EXE" "$RELEASE_DIR/$BINARY_NAME"
+              echo "✓ Renamed successfully"
+            fi
+          else
+            echo "No custom binary name specified, keeping original name"
+          fi
+          
+          echo "=== Final executable ==="
+          ls -la "$RELEASE_DIR"
+        
+      - name: Archive Linux Build
+        run: |
+          cd build/linux/x64/release/bundle
+          tar -czf ../../../../../${{ github.event.inputs.binaryName }}-${{ env.APP_VERSION }}-Linux.tar.gz *
+          
+      - name: Upload Linux Build
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.inputs.binaryName }}-${{ env.APP_VERSION }}-Linux
+          path: ${{ github.event.inputs.binaryName }}-${{ env.APP_VERSION }}-Linux.tar.gz
+
+  # 合并所有平台的构建产物到一个下载包
+  merge-artifacts:
+    name: Merge All Artifacts
+    runs-on: ubuntu-latest
+    needs: [build-android, build-windows, build-macos, build-linux]
+    steps:
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./all-artifacts
+          pattern: ${{ github.event.inputs.binaryName }}-*
+          merge-multiple: false
+          
+      - name: List Downloaded Files
+        run: |
+          echo "=== Downloaded artifact directories ==="
+          ls -la ./all-artifacts/
+          echo ""
+          echo "=== All files ==="
+          find ./all-artifacts -type f -exec ls -lh {} \;
+          
+      - name: Merge into Single Package
+        run: |
+          mkdir -p ./release
+          
+          # 复制所有构建文件到 release 目录
+          for dir in ./all-artifacts/*/; do
+            echo "Processing: $dir"
+            # 复制目录中的所有文件
+            find "$dir" -type f \( -name "*.apk" -o -name "*.zip" -o -name "*.dmg" -o -name "*.tar.gz" -o -name "*.exe" \) -exec cp {} ./release/ \;
+          done
+          
+          echo ""
+          echo "=== Final release package contents ==="
+          ls -lh ./release/
+          
+      - name: Upload Merged Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.inputs.binaryName }}-All-Platforms
+          path: ./release/
+          retention-days: 30
+          if-no-files-found: warn
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: merge-artifacts
+    if: ${{ github.event.inputs.publishRelease == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download Merged Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ github.event.inputs.binaryName }}-All-Platforms
+          path: ./release
+          
+      - name: Get Version for Tag
+        id: get_tag
+        shell: bash
+        run: |
+          # 尝试从文件名中提取版本号 (例如 App-0.8.91+251211-Android.apk)
+          # 寻找第一个包含 + 的文件名
+          FILE=$(ls ./release | grep "+" | head -n 1)
+          if [ -z "$FILE" ]; then
+             echo "Could not find file with version string!"
+             exit 1
+          fi
+          
+          # 直接用正则提取含有 + 号的段
+          VERSION=$(echo "$FILE" | grep -oP '\d+\.\d+\.\d+\+\d+')
+          
+          echo "Detected version: $VERSION"
+          echo "TAG_NAME=v$VERSION" >> $GITHUB_ENV
+          
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          name: ${{ github.event.inputs.appName }} ${{ env.TAG_NAME }}
+          files: ./release/*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
