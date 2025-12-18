@@ -35,6 +35,11 @@ on:
         description: 'Icon URL (图标链接, 可选)'
         required: false
         default: 'https://oss.tianque.cc/i8.png'
+      publishRelease:
+        description: 'Publish Release (是否自动发布 Release)'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   build-android:
@@ -43,10 +48,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          repository: wangn9900/MOMclash
-          token: ${{ secrets.ACCESS_TOKEN }}
           submodules: recursive
-          ref: main
       
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -69,6 +71,17 @@ jobs:
           
       - name: Get Dependencies
         run: flutter pub get
+        
+      - name: Update Version
+        run: dart run scripts/update_version.dart
+        
+      - name: Get Version
+        id: get_version
+        shell: bash
+        run: |
+          VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //')
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Version is $VERSION"
         
       - name: Update OEM Config
         run: |
@@ -117,7 +130,7 @@ jobs:
       - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.event.inputs.binaryName }}-Android
+          name: ${{ github.event.inputs.binaryName }}-${{ env.APP_VERSION }}-Android
           path: |
             build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
             build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
@@ -129,10 +142,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          repository: wangn9900/MOMclash
-          token: ${{ secrets.ACCESS_TOKEN }}
           submodules: recursive
-          ref: main
       
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -151,6 +161,7 @@ jobs:
         run: |
           Write-Host "Installing Inno Setup 6..."
           choco install innosetup -y
+          # 验证安装
           if (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe") {
             Write-Host "Inno Setup 6 installed successfully"
           } else {
@@ -159,6 +170,17 @@ jobs:
           
       - name: Get Dependencies
         run: flutter pub get
+        
+      - name: Update Version
+        run: dart run scripts/update_version.dart
+        
+      - name: Get Version
+        id: get_version
+        shell: bash
+        run: |
+          VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //')
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Version is $VERSION"
         
       - name: Update OEM Config
         run: |
@@ -247,7 +269,7 @@ jobs:
           }
           
           # 直接打包 Release 目录（不解压重打包）
-          $finalZip = "${{ github.event.inputs.binaryName }}-Windows.zip"
+          $finalZip = "${{ github.event.inputs.binaryName }}-${{ env.APP_VERSION }}-Windows.zip"
           
           Write-Host "Creating package: $finalZip"
           
@@ -267,6 +289,8 @@ jobs:
       - name: Copy EXE Installer
         run: |
           Write-Host "=== Looking for EXE installer ==="
+          
+          # flutter_distributor 生成的文件在 dist 目录
           $distDir = "dist"
           $binaryName = "${{ github.event.inputs.binaryName }}"
           
@@ -279,12 +303,13 @@ jobs:
               Write-Host "$($_.FullName) - $($_.Length) bytes"
             }
             
+            # 查找 exe 安装包文件
             $exeFiles = Get-ChildItem -Path $distDir -Filter "*.exe" -Recurse
             Write-Host "Found $($exeFiles.Count) exe file(s)"
             
             if ($exeFiles.Count -gt 0) {
               foreach ($exe in $exeFiles) {
-                $newName = "$binaryName-Windows-Setup.exe"
+                $newName = "$binaryName-${{ env.APP_VERSION }}-Windows-Setup.exe"
                 Copy-Item -Path $exe.FullName -Destination $newName -Force
                 Write-Host "Copied: $($exe.FullName) -> $newName"
                 
@@ -294,10 +319,21 @@ jobs:
             } else {
               Write-Warning "No EXE installer found in dist directory"
             }
+            
+            # 同时查找并使用 dist 目录中的 zip 文件（如果比我们打包的更完整）
+            $zipFiles = Get-ChildItem -Path $distDir -Filter "*.zip" -Recurse
+            Write-Host "Found $($zipFiles.Count) zip file(s) in dist"
+            
+            if ($zipFiles.Count -gt 0) {
+              foreach ($zip in $zipFiles) {
+                Write-Host "dist zip: $($zip.FullName) - $($zip.Length) bytes"
+              }
+            }
           } else {
-            Write-Warning "dist directory not found"
+            Write-Warning "dist directory not found - flutter_distributor may not have run"
           }
           
+          # 验证最终文件
           Write-Host ""
           Write-Host "=== Final files to upload ==="
           Get-ChildItem -Filter "$binaryName-Windows*" | ForEach-Object {
@@ -307,10 +343,10 @@ jobs:
       - name: Upload Windows Build
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.event.inputs.binaryName }}-Windows
+          name: ${{ github.event.inputs.binaryName }}-${{ env.APP_VERSION }}-Windows
           path: |
-            ${{ github.event.inputs.binaryName }}-Windows.zip
-            ${{ github.event.inputs.binaryName }}-Windows-Setup.exe
+            ${{ github.event.inputs.binaryName }}-${{ env.APP_VERSION }}-Windows.zip
+            ${{ github.event.inputs.binaryName }}-${{ env.APP_VERSION }}-Windows-Setup.exe
           if-no-files-found: warn
 
   build-macos:
@@ -319,10 +355,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          repository: wangn9900/MOMclash
-          token: ${{ secrets.ACCESS_TOKEN }}
           submodules: recursive
-          ref: main
       
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -339,6 +372,9 @@ jobs:
           
       - name: Get Dependencies
         run: flutter pub get
+        
+      - name: Update Version
+        run: dart run scripts/update_version.dart
         
       - name: Update OEM Config
         run: |
@@ -368,7 +404,7 @@ jobs:
           echo ">>> Packaging arm64 DMG..."
           cd build/macos/Build/Products/Release
           APP_NAME=$(ls -d *.app | head -n 1)
-          DMG_NAME="${{ github.event.inputs.binaryName }}-arm64.dmg"
+          DMG_NAME="${{ github.event.inputs.binaryName }}-${{ env.APP_VERSION }}-arm64.dmg"
           hdiutil create -volname "${{ github.event.inputs.binaryName }}" -srcfolder "$APP_NAME" -ov -format UDZO "$DMG_NAME"
           mv "$DMG_NAME" ../../../../../
           
@@ -388,17 +424,17 @@ jobs:
           echo ">>> Packaging amd64 DMG..."
           cd build/macos/Build/Products/Release
           APP_NAME=$(ls -d *.app | head -n 1)
-          DMG_NAME="${{ github.event.inputs.binaryName }}-amd64.dmg"
+          DMG_NAME="${{ github.event.inputs.binaryName }}-${{ env.APP_VERSION }}-amd64.dmg"
           hdiutil create -volname "${{ github.event.inputs.binaryName }}" -srcfolder "$APP_NAME" -ov -format UDZO "$DMG_NAME"
           mv "$DMG_NAME" ../../../../../
           
       - name: Upload macOS Build
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.event.inputs.binaryName }}-macOS
+          name: ${{ github.event.inputs.binaryName }}-${{ env.APP_VERSION }}-macOS
           path: |
-            ${{ github.event.inputs.binaryName }}-arm64.dmg
-            ${{ github.event.inputs.binaryName }}-amd64.dmg
+            ${{ github.event.inputs.binaryName }}-${{ env.APP_VERSION }}-arm64.dmg
+            ${{ github.event.inputs.binaryName }}-${{ env.APP_VERSION }}-amd64.dmg
 
   build-linux:
     name: Build Linux Client
@@ -406,10 +442,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          repository: wangn9900/MOMclash
-          token: ${{ secrets.ACCESS_TOKEN }}
           submodules: recursive
-          ref: main
       
       - name: Install Dependencies
         run: |
@@ -431,6 +464,17 @@ jobs:
           
       - name: Get Dependencies
         run: flutter pub get
+        
+      - name: Update Version
+        run: dart run scripts/update_version.dart
+        
+      - name: Get Version
+        id: get_version
+        shell: bash
+        run: |
+          VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //')
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Version is $VERSION"
         
       - name: Update OEM Config
         run: |
@@ -479,13 +523,13 @@ jobs:
       - name: Archive Linux Build
         run: |
           cd build/linux/x64/release/bundle
-          tar -czf ../../../../../${{ github.event.inputs.binaryName }}-Linux.tar.gz *
+          tar -czf ../../../../../${{ github.event.inputs.binaryName }}-${{ env.APP_VERSION }}-Linux.tar.gz *
           
       - name: Upload Linux Build
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.event.inputs.binaryName }}-Linux
-          path: ${{ github.event.inputs.binaryName }}-Linux.tar.gz
+          name: ${{ github.event.inputs.binaryName }}-${{ env.APP_VERSION }}-Linux
+          path: ${{ github.event.inputs.binaryName }}-${{ env.APP_VERSION }}-Linux.tar.gz
 
   # 合并所有平台的构建产物到一个下载包
   merge-artifacts:
@@ -526,7 +570,75 @@ jobs:
       - name: Upload Merged Artifacts
         uses: actions/upload-artifact@v4
         with:
+          # 没有直接的方法在这里获取版本号，除非我们从文件名中提取或者再次运行 get_version
+          # 但因为这是合并步骤，我们简单地使用 Generic Name，里面的文件是带版本的即可
+          # 或者，我们可以假设所有文件都带有相同的版本号
           name: ${{ github.event.inputs.binaryName }}-All-Platforms
           path: ./release/
           retention-days: 30
           if-no-files-found: warn
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: merge-artifacts
+    if: ${{ github.event.inputs.publishRelease == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download Merged Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ github.event.inputs.binaryName }}-All-Platforms
+          path: ./release
+          
+      - name: Get Version for Tag
+        id: get_tag
+        shell: bash
+        run: |
+          # 尝试从文件名中提取版本号 (例如 App-0.8.91+251211-Android.apk)
+          # 寻找第一个包含 + 的文件名
+          FILE=$(ls ./release | grep "+" | head -n 1)
+          if [ -z "$FILE" ]; then
+             echo "Could not find file with version string!"
+             exit 1
+          fi
+          # 提取版本号: 假设格式为Name-VERSION-Platform.ext
+          # 我们取第一个 '-' 和最后一个 '-' 中间的部分? 不太可靠
+          # 既然我们知道格式是 BinaryName-VERSION-Platform
+          # 我们可以去掉 BinaryName- (前缀) 和 -Platform (后缀)
+          
+          BINARY_NAME="${{ github.event.inputs.binaryName }}"
+          # 移除前缀
+          TEMP="${FILE#$BINARY_NAME-}"
+          # 移除后缀 (即最后一个 - 及其后面的所有内容)
+          VERSION="${TEMP%-*-*}" 
+          # 上面的逻辑可能对 .tar.gz 不友好，或者对 Windows-Setup 不友好
+          
+          # 更简单的方法：直接用正则提取含有 + 号的段
+          VERSION=$(echo "$FILE" | grep -oP '\d+\.\d+\.\d+\+\d+')
+          
+          echo "Detected version: $VERSION"
+          echo "TAG_NAME=v$VERSION" >> $GITHUB_ENV
+          
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          name: ${{ github.event.inputs.appName }} ${{ env.TAG_NAME }}
+          files: ./release/*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Release to TianQueClient
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          name: ${{ github.event.inputs.appName }} ${{ env.TAG_NAME }}
+          files: ./release/*
+          draft: false
+          prerelease: false
+          token: ${{ secrets.TIANQUECLIENT }}
+          repository: tianquege/TianQueClient

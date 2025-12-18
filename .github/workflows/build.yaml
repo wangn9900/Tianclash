@@ -232,6 +232,16 @@ jobs:
           files: ./dist/*
           body_path: './release.md'
 
+      - name: Release to TianQueClient
+        if: ${{ startsWith(github.ref, 'refs/tags/') && env.IS_STABLE == 'true' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ secrets.TIANQUECLIENT }}
+          repository: tianquege/TianQueClient
+          files: ./dist/*
+          body_path: './release.md'
+          tag_name: ${{ github.ref_name }}
+
              # - name: Create Fdroid Source Dir
        #   if: ${{ env.IS_STABLE == 'true' }}
        #   run: |
