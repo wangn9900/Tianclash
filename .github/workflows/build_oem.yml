@@ -75,6 +75,15 @@ jobs:
       - name: Get Dependencies
         run: flutter pub get
         
+      - name: Generate Code for Plugins
+        run: |
+          if [ -d "plugins/chatwoot_sdk" ]; then
+            cd plugins/chatwoot_sdk
+            flutter pub get
+            dart run build_runner build --delete-conflicting-outputs
+            cd ../..
+          fi
+          
       - name: Update Version
         run: dart run scripts/update_version.dart
         
@@ -475,6 +484,15 @@ jobs:
       - name: Get Dependencies
         run: flutter pub get
         
+      - name: Generate Code for Plugins
+        run: |
+          if [ -d "plugins/chatwoot_sdk" ]; then
+            cd plugins/chatwoot_sdk
+            flutter pub get
+            dart run build_runner build --delete-conflicting-outputs
+            cd ../..
+          fi
+          
       - name: Update Version
         run: dart run scripts/update_version.dart
 
