@@ -90,6 +90,27 @@ jobs:
       - name: Get Flutter Dependency
         run: flutter pub get
 
+      - name: Generate Code for Plugins
+        run: |
+          if [ -d "plugins/chatwoot_sdk" ]; then
+            cd plugins/chatwoot_sdk
+            flutter pub get
+            dart run build_runner build --delete-conflicting-outputs
+            cd ../..
+          fi
+        if: runner.os != 'Windows'
+
+      - name: Generate Code for Plugins (Windows)
+        run: |
+          if (Test-Path "plugins/chatwoot_sdk") {
+            cd plugins/chatwoot_sdk
+            flutter pub get
+            dart run build_runner build --delete-conflicting-outputs
+            cd ../..
+          }
+        if: runner.os == 'Windows'
+        shell: powershell
+
       - name: Setup
         run: dart setup.dart ${{ matrix.platform }} ${{ matrix.arch && format('--arch {0}', matrix.arch) }} ${{ env.IS_STABLE == 'true' && '--env stable' || '' }}
 
