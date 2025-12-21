@@ -40,6 +40,10 @@ on:
         required: false
         type: boolean
         default: false
+      iconBackgroundColor:
+        description: 'Icon Background Color (图标背景色, 如 #FFFFFF)'
+        required: false
+        default: '#FFFFFF'
 
 jobs:
   build-android:
@@ -105,7 +109,9 @@ jobs:
             --imgbbApiKey="${{ github.event.inputs.imgbbApiKey }}" \
             --backupUrls="${{ github.event.inputs.backupUrls }}" \
             --fallbackUrl="${{ github.event.inputs.fallbackUrl }}" \
-            --iconPath="${{ github.event.inputs.iconUrl != '' && github.event.inputs.iconUrl || 'assets/images/icon.png' }}"
+            --iconPath="${{ github.event.inputs.iconUrl != '' && github.event.inputs.iconUrl || 'assets/images/icon.png' }}" \
+            --iconBackgroundColor="${{ github.event.inputs.iconBackgroundColor }}"
+
             
       - name: Build Core
         run: dart setup.dart android --out core
@@ -216,7 +222,8 @@ jobs:
             --imgbbApiKey="${{ github.event.inputs.imgbbApiKey }}" `
             --backupUrls="${{ github.event.inputs.backupUrls }}" `
             --fallbackUrl="${{ github.event.inputs.fallbackUrl }}" `
-            --iconPath="${{ github.event.inputs.iconUrl != '' && github.event.inputs.iconUrl || 'assets/images/icon.png' }}"
+            --iconPath="${{ github.event.inputs.iconUrl != '' && github.event.inputs.iconUrl || 'assets/images/icon.png' }}" `
+            --iconBackgroundColor="${{ github.event.inputs.iconBackgroundColor }}"
             
       - name: Prepare Build Environment
         run: |
@@ -419,7 +426,9 @@ jobs:
             --imgbbApiKey="${{ github.event.inputs.imgbbApiKey }}" \
             --backupUrls="${{ github.event.inputs.backupUrls }}" \
             --fallbackUrl="${{ github.event.inputs.fallbackUrl }}" \
-            --iconPath="${{ github.event.inputs.iconUrl != '' && github.event.inputs.iconUrl || 'assets/images/icon.png' }}"
+            --iconPath="${{ github.event.inputs.iconUrl != '' && github.event.inputs.iconUrl || 'assets/images/icon.png' }}" \
+            --iconBackgroundColor="${{ github.event.inputs.iconBackgroundColor }}"
+
             
       - name: Build and Package macOS (arm64)
         run: |
@@ -533,7 +542,9 @@ jobs:
             --imgbbApiKey="${{ github.event.inputs.imgbbApiKey }}" \
             --backupUrls="${{ github.event.inputs.backupUrls }}" \
             --fallbackUrl="${{ github.event.inputs.fallbackUrl }}" \
-            --iconPath="${{ github.event.inputs.iconUrl != '' && github.event.inputs.iconUrl || 'assets/images/icon.png' }}"
+            --iconPath="${{ github.event.inputs.iconUrl != '' && github.event.inputs.iconUrl || 'assets/images/icon.png' }}" \
+            --iconBackgroundColor="${{ github.event.inputs.iconBackgroundColor }}"
+
 
       - name: Clean Build Cache
         run: |
