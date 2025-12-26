@@ -1,0 +1,218 @@
+name: Build TQP Client
+
+on:
+  workflow_dispatch:
+    inputs:
+      appName:
+        description: 'App Name (应用名称)'
+        required: true
+        default: 'TQP加速-Private'
+      binaryName:
+        description: 'Binary Name (可执行文件名)'
+        required: true
+        default: 'MOMclash-TQP'
+      packageName:
+        description: 'Package Name (包名)'
+        required: true
+        default: 'com.tqp.clash'
+      ossUrl:
+        description: 'OSS URL (配置接口)'
+        required: true
+        default: 'https://oss.tianque.cc/oss_config.txt'
+      imgbbApiKey:
+        description: 'ImgBB API Key (图床Key)'
+        required: true
+        default: '85719aefcab7c40a7eaed3b06784898a'
+      backupUrls:
+        description: 'Backup URLs (备用地址)'
+        required: false
+        default: 'https://154.219.96.225:2621,https://tq.tianquege.top,https://gogogo.tianquege.top'
+      fallbackUrl:
+        description: 'Fallback URL (回退地址)'
+        required: false
+        default: 'https://150.241.207.176:8443'
+      iconUrl:
+        description: 'Icon URL (图标链接)'
+        required: false
+        default: 'https://oss.tianque.cc/logo1.png'
+      publishRelease:
+        description: 'Publish Release'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: wangn9900/MOMclash-TQP
+          token: ${{ secrets.ACCESS_TOKEN }}
+          submodules: recursive
+          ref: tqp-main
+
+      - name: Free Disk Space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "/usr/local/share/boost"
+          sudo rm -rf /usr/local/lib/node_modules
+          sudo rm -rf /usr/local/share/chromium
+          sudo rm -rf /usr/local/lib/codeql
+          sudo apt-get clean
+          df -h
+      
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.0'
+          cache-dependency-path: |
+            core/go.sum
+          
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+          
+      - name: Get Dependencies
+        run: flutter pub get
+        
+      - name: Generate Code for Plugins
+        run: |
+          if [ -d "plugins/chatwoot_sdk" ]; then
+            cd plugins/chatwoot_sdk
+            flutter pub get
+            dart run build_runner build --delete-conflicting-outputs
+            cd ../..
+          fi
+          
+      - name: Update Version
+        run: dart run scripts/update_version.dart
+        
+      - name: Get Version
+        id: get_version
+        shell: bash
+        run: |
+          VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //')
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Version is $VERSION"
+
+      - name: Update OEM Config
+        run: |
+          dart run scripts/update_oem.dart \
+            --appName="${{ github.event.inputs.appName }}" \
+            --binaryName="${{ github.event.inputs.binaryName }}" \
+            --packageName="${{ github.event.inputs.packageName }}" \
+            --ossUrl="${{ github.event.inputs.ossUrl }}" \
+            --imgbbApiKey="${{ github.event.inputs.imgbbApiKey }}" \
+            --backupUrls="${{ github.event.inputs.backupUrls }}" \
+            --fallbackUrl="${{ github.event.inputs.fallbackUrl }}" \
+            --iconPath="${{ github.event.inputs.iconUrl != '' && github.event.inputs.iconUrl || 'assets/images/icon.png' }}"
+            
+      - name: Build Core
+        run: dart setup.dart android --out core
+
+      - name: Setup Android Signing
+        run: |
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
+          elif [ -n "${{ secrets.KEYSTORE }}" ]; then
+            echo "${{ secrets.KEYSTORE }}" | base64 --decode > android/app/keystore.jks
+          fi
+          
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/local.properties
+          echo "storePassword=${{ secrets.STORE_PASSWORD }}" >> android/local.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/local.properties
+
+      - name: Build APK
+        run: flutter build apk --release --split-per-abi --dart-define=APP_ENV=stable
+        
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.inputs.binaryName }}-${{ env.APP_VERSION }}-Android
+          path: |
+            build/app/outputs/flutter-apk/*.apk
+
+  build-windows:
+    name: Build Windows Client
+    runs-on: Windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: wangn9900/MOMclash-TQP
+          token: ${{ secrets.ACCESS_TOKEN }}
+          submodules: recursive
+          ref: tqp-main
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.0'
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+      
+      - name: Get Dependencies
+        run: flutter pub get
+        
+      - name: Update Version
+        run: dart run scripts/update_version.dart
+
+      - name: Get Version
+        id: get_version
+        shell: bash
+        run: |
+          VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //')
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Update OEM Config
+        run: |
+          dart run scripts/update_oem.dart `
+            --appName="${{ github.event.inputs.appName }}" `
+            --binaryName="${{ github.event.inputs.binaryName }}" `
+            --packageName="${{ github.event.inputs.packageName }}" `
+            --ossUrl="${{ github.event.inputs.ossUrl }}" `
+            --imgbbApiKey="${{ github.event.inputs.imgbbApiKey }}" `
+            --backupUrls="${{ github.event.inputs.backupUrls }}" `
+            --fallbackUrl="${{ github.event.inputs.fallbackUrl }}" 
+            
+      - name: Build Windows
+        run: |
+          dart setup.dart windows --arch amd64 --env stable
+          
+      - name: Upload Windows Build
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.inputs.binaryName }}-${{ env.APP_VERSION }}-Windows
+          path: build/windows/x64/runner/Release/*
+
+  merge-artifacts:
+    name: Merge All Artifacts
+    runs-on: ubuntu-latest
+    needs: [build-android, build-windows]
+    steps:
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./all-artifacts
+          pattern: ${{ github.event.inputs.binaryName }}-*
+          
+      - name: Upload Merged Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.inputs.binaryName }}-All-Platforms
+          path: ./all-artifacts/
+          retention-days: 30
