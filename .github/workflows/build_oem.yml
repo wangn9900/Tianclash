@@ -56,6 +56,15 @@ jobs:
           token: ${{ secrets.ACCESS_TOKEN }}
           submodules: recursive
           ref: main
+
+      - name: Free Disk Space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "/usr/local/share/boost"
+          sudo apt-get clean
+          df -h
       
       - name: Setup Java
         uses: actions/setup-java@v4
