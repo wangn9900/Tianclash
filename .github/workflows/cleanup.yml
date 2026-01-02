@@ -1,0 +1,20 @@
+name: Universal Cleanup
+
+on: 
+  workflow_dispatch: # 仅手动触发
+
+jobs:
+  delete-runs:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Delete old workflow runs
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          retain_days: 0        # 不按天数保留，全看数量
+          keep_minimum_runs: 10 # 每个 Workflow 只保留最近 10 条
+          # delete_workflow_pattern: ... # 删掉这行，任何名字的记录都会被清理
