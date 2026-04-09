@@ -150,7 +150,7 @@ jobs:
           fi
 
       - name: Build Mobile APK
-        run: flutter build apk --release --split-per-abi --dart-define=APP_ENV=stable
+        run: flutter build apk --release --split-per-abi --dart-define=APP_ENV=stable --android-skip-build-dependency-validation
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
@@ -164,7 +164,7 @@ jobs:
           mv build/app/outputs/flutter-apk/app-x86_64-release.apk build/outputs/mobile/${{ github.event.inputs.binaryName }}-Mobile-x86_64.apk
 
       - name: Build TV APK
-        run: flutter build apk --release --split-per-abi --dart-define=APP_ENV=stable --dart-define=FORCE_TV=true
+        run: flutter build apk --release --split-per-abi --dart-define=APP_ENV=stable --dart-define=FORCE_TV=true --android-skip-build-dependency-validation
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
