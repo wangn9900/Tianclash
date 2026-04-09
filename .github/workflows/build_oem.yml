@@ -149,21 +149,40 @@ jobs:
             echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/local.properties
           fi
 
-      - name: Build APK
+      - name: Build Mobile APK
         run: flutter build apk --release --split-per-abi --dart-define=APP_ENV=stable
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+      - name: Rename Mobile APKs
+        run: |
+          mkdir -p build/outputs/mobile
+          mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/outputs/mobile/${{ github.event.inputs.binaryName }}-Mobile-arm64-v8a.apk
+          mv build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk build/outputs/mobile/${{ github.event.inputs.binaryName }}-Mobile-armeabi-v7a.apk
+          mv build/app/outputs/flutter-apk/app-x86_64-release.apk build/outputs/mobile/${{ github.event.inputs.binaryName }}-Mobile-x86_64.apk
+
+      - name: Build TV APK
+        run: flutter build apk --release --split-per-abi --dart-define=APP_ENV=stable --dart-define=FORCE_TV=true
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+      - name: Rename TV APKs
+        run: |
+          mkdir -p build/outputs/tv
+          mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/outputs/tv/${{ github.event.inputs.binaryName }}-TV-arm64-v8a.apk
+          mv build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk build/outputs/tv/${{ github.event.inputs.binaryName }}-TV-armeabi-v7a.apk
         
       - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.event.inputs.binaryName }}-${{ env.APP_VERSION }}-Android
+          name: ${{ github.event.inputs.binaryName }}-${{ env.APP_VERSION }}-Android-Combined
           path: |
-            build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
-            build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
-            build/app/outputs/flutter-apk/app-x86_64-release.apk
+            build/outputs/mobile/*.apk
+            build/outputs/tv/*.apk
 
   build-windows:
     name: Build Windows Client
