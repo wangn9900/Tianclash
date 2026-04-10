@@ -30,7 +30,7 @@ on:
       fallbackUrl:
         description: 'Fallback URL (回退地址)'
         required: false
-        default: 'https://150.241.207.176:8443'
+        default: 'https://api-backup-03.tianque.cc'
       iconUrl:
         description: 'Icon URL (图标链接, 可选)'
         required: false
