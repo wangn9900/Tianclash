@@ -26,7 +26,7 @@ on:
       backupUrls:
         description: 'Backup URLs (备用地址, 逗号分隔)'
         required: false
-        default: 'https://154.219.96.225:2621,https://tq.tianquege.top,https://gogogo.tianquege.top'
+        default: 'https://api-backup-01.tianque.cc,https://api-backup-02.tianque.cc,https://gogogo.tianquege.top'
       fallbackUrl:
         description: 'Fallback URL (回退地址)'
         required: false
